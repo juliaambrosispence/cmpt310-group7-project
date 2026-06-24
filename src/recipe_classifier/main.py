@@ -14,6 +14,7 @@ from pathlib import Path
 
 N_ROWS = 10
 RATING_THRESHOLD = 4.5
+MIN_INGREDIENT_FREQ = 2
 
 # Dictionary that contains preprocessing method for each column of recipes dataset
 # Specify which columns we:
@@ -115,6 +116,59 @@ for column in time_columns:
 # TODO: Split up data into training/testing sets
 
 # Specify which columns to drop
+
+all_ings = recipes_df['RecipeIngredientParts'].tolist() #make it into a list for the for loops.
+
+#to fix the duplicates like "allpurpose flour" vs "flour"
+base_ings = [ #basic ingredients to combine.
+    "flour", "sugar", "oil", "chicken", "salt", "milk", "butter", 
+    "lemon", "garlic", "onion", "soy sauce", "rice", "yogurt", "egg"
+];
+
+for i in range(0, len(all_ings)):#until end of list,
+    current_recipe = all_ings[i];
+    cleaned_recipe = []; #new combined ingredient list
+    
+    for j in range(0, len(current_recipe)): #loop for every ingredient
+        item = str(current_recipe[j]).lower();#standardize lower
+        
+        for k in range(0, len(base_ings)):#shortens string with just 1 word.
+            if item.find(base_ings[k]) != -1:
+                item = base_ings[k];
+                break; #found match, stop searching!
+                
+        cleaned_recipe.append(item);#add into the combined list
+        
+    all_ings[i] = cleaned_recipe; #overwrite list with clean version
+
+ing_counts = {};#check how many time actual ingredient shows up and adds to a count.
+for i in range(0, len(all_ings)):
+    recipe = all_ings[i];
+    
+    for j in range(0, len(recipe)):
+        ing = recipe[j];
+        
+        #check if key exists in list
+        if ing in ing_counts:
+            ing_counts[ing] = ing_counts[ing] + 1;
+        else:
+            ing_counts[ing] = 1; #+0 to count basicall
+
+
+#going to check the count and go back delete the ones that don't meet our minimum
+for i in range(len(all_ings)):
+    current_recipe = all_ings[i];
+    popular_only = [] #ingredients that meet the minimum freq (2)
+    
+    for ing in current_recipe:
+        if ing_counts[ing] >= MIN_INGREDIENT_FREQ: #if it doesnt meet minimum freq (2)
+            popular_only.append(ing);
+            
+    all_ings[i] = popular_only
+
+recipes_df['RecipeIngredientParts'] = all_ings #put list back into the main pandas table 
+
+
 X = recipes_df.drop(columns=drop_columns)
 
 # Our labels are 1 - good recipe if rating is above threshold, otherwise 0
