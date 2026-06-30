@@ -89,6 +89,13 @@ parquet_recipes = pd.read_parquet(dataset_dir / "recipes.parquet")#pq.ParquetFil
 #recipes_df = next(parquet_recipes.iter_batches(batch_size=N_ROWS)).to_pandas()
 recipes_df = parquet_recipes.sample(n=N_ROWS, random_state=67)
 
+
+
+#this applies the has_cuisine mask from your utils.py file
+recipes_df = recipes_df[recipes_df['Keywords'].apply(has_cuisine)].reset_index(drop=True)
+print(f"\n--- dataset CLEANED: {len(recipes_df)} recipes remaining after dropping unlabelled cuisines. ---\n")
+# ==========================================
+
 # Next we should do processing on the data
 
 # Split up all the columns depending on feature settings specified at the top of file.
@@ -156,6 +163,7 @@ for i in range(0, len(keyword_ings)):
 recipes_df['Keywords'] = new_keywords
 
 count_category_frequency(new_keywords, 500)
+
 
 # Ingredients Processing ===============================================================================================
 all_ings = recipes_df['RecipeIngredientParts'].tolist() #make it into a list for the for loops.
