@@ -252,6 +252,7 @@ X = recipes_df.drop(columns=drop_columns)
 
 # Our labels are 1 - good recipe if rating is above threshold, otherwise 0
 y = (recipes_df['AggregatedRating'].astype(float) >= RATING_THRESHOLD).astype(int)
+x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=67)
 
 # TODO: We may need to take a look at how one-hot encoding handles the RecipeCategory and the ingredients
 # The type of encoding we do will make a new feature out of every unique string we see in the category and ingredient
