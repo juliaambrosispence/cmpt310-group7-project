@@ -14,6 +14,7 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder, MultiLabelBinar
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
+from sklearn.neighbors import KNeighborsClassifier
 from pathlib import Path
 from utils import *
 
@@ -89,6 +90,8 @@ print(f"Dataset located at {dataset_dir}")
 
 # Parquet files need a different approach to only read a certain number of entries
 parquet_recipes = pd.read_parquet(dataset_dir / "recipes.parquet")#pq.ParquetFile(dataset_dir / "recipes.parquet")
+#filtering out recipes that don't have a rating
+parquet_recipes = parquet_recipes.dropna(subset=['AggregatedRating']).reset_index(drop=True)
 #recipes_df = next(parquet_recipes.iter_batches(batch_size=N_ROWS)).to_pandas()
 recipes_df = parquet_recipes.sample(n=N_ROWS, random_state=67)
 
@@ -276,6 +279,9 @@ preprocessor = ColumnTransformer(
 # Apply fit of data based on the methods we specified to each set of columns, then apply transformations
 transformed_X_train = preprocessor.fit_transform(X_train)
 transformed_X_test = preprocessor.transform(X_test)
+
+knn = KNeighborsClassifier(n_neighbors=5)
+knn.fit(transformed_X_train, y_train)
 
 # Print resulting ndarray for just first row to see results
 np.set_printoptions(threshold=sys.maxsize)
