@@ -252,7 +252,7 @@ X = recipes_df.drop(columns=drop_columns)
 
 # Our labels are 1 - good recipe if rating is above threshold, otherwise 0
 y = (recipes_df['AggregatedRating'].astype(float) >= RATING_THRESHOLD).astype(int)
-x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=67)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=67)
 
 # TODO: We may need to take a look at how one-hot encoding handles the RecipeCategory and the ingredients
 # The type of encoding we do will make a new feature out of every unique string we see in the category and ingredient
@@ -272,19 +272,20 @@ preprocessor = ColumnTransformer(
 )
 
 # Apply fit of data based on the methods we specified to each set of columns, then apply transformations
-transformed_X = preprocessor.fit_transform(X)
+transformed_X_train = preprocessor.fit_transform(X_train)
+transformed_X_test = preprocessor.transform(X_test)
 
 # Print resulting ndarray for just first row to see results
 np.set_printoptions(threshold=sys.maxsize)
 print(preprocessor.get_feature_names_out())
-print(transformed_X[:1])
-print(y)
+print(transformed_X_train[:1])
+print(y_train)
 
 # TODO: Take processed data and train a classifier, evaluate metrics, generate plots
 
 feature_names = preprocessor.get_feature_names_out()
-sample_x = transformed_X[0] 
-sample_y = y.iloc[0]          
+sample_x = transformed_X_train[0]
+sample_y = y_train.iloc[0]
 
 
 print("\nchecking first row:")
