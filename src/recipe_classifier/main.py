@@ -12,6 +12,8 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, MultiLabelBinarizer
 from sklearn.model_selection import train_test_split
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
 from pathlib import Path
 from utils import *
 
@@ -264,7 +266,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 # Preprocess data using a ColumnTransformer to fit everything into one ndarray of data
 preprocessor = ColumnTransformer(
  transformers=[
-  ("numerical", StandardScaler(), standard_columns),
+  ("numerical", Pipeline([("imputer",SimpleImputer(strategy="mean")),("scaler",StandardScaler())]), standard_columns),
   ("categorical", OneHotEncoder(handle_unknown="ignore"), categorical_columns),
   ("ingredients", ModifiedMultiLabelBinarizer(), ["RecipeIngredientParts"]),
   #("keywords", ModifiedMultiLabelBinarizer(), ["Keywords"]),
@@ -291,6 +293,7 @@ sample_y = y_train.iloc[0]
 print("\nchecking first row:")
 print("x features:")
 for i in range(len(feature_names)):
+    
     if sample_x[i] != 0: #only print nonzero stuff example
         print(f"  {feature_names[i]}: {sample_x[i]:.2f}")
 
