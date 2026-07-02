@@ -8,9 +8,76 @@ import pandas as pd
 import sys
 import numpy as np
 import pyarrow.parquet as pq
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, MultiLabelBinarizer
 from pathlib import Path
+from utils import *
+
+N_ROWS = 100
+RATING_THRESHOLD = 4.5
+MIN_INGREDIENT_FREQ = 5
+MIN_KEYWORD_FREQ = 5
+
+# Dictionary that contains preprocessing method for each column of recipes dataset
+# Specify which columns we:
+# drop - Delete from dataset
+# standard - Subtract mean and divide by std. deviation
+# time - Convert to number of minutes and then treat as standard
+# one-hot - Treat as a categorical feature, where an example has a 1 if it has that feature, 0 o.w.
+# multicat - Use MultiLabelBinarizer to take an array of categories and mark if the example has that feature
+feature_settings = {
+ 'RecipeId' : "drop",
+ 'Name' : "drop",
+ 'AuthorId' : "drop",
+ 'AuthorName' : "drop",
+ 'CookTime' : "time",
+ 'PrepTime' : "time",
+ 'TotalTime' : "drop",
+ 'DatePublished' : "drop",
+ 'Description' : "drop",
+ 'Images' : "drop",
+ 'RecipeCategory' : "drop",
+ 'Keywords' : "one-hot",
+ 'RecipeIngredientQuantities' : "drop",
+ 'RecipeIngredientParts' : "multicat",
+ 'AggregatedRating' : "drop",
+ 'ReviewCount' : "drop",
+ 'Calories' : "standard",
+ 'FatContent' : "standard",
+ 'SaturatedFatContent' : "standard",
+ 'CholesterolContent' : "standard",
+ 'SodiumContent' : "standard",
+ 'CarbohydrateContent' : "standard",
+ 'FiberContent' : "standard",
+ 'SugarContent' : "standard",
+ 'ProteinContent' : "standard",
+ 'RecipeServings' : "standard",
+ 'RecipeYield' : "drop",
+ 'RecipeInstructions' : "drop",
+}
+
+# Define a modified MultiLabelBinarizer for use in ColumnTransformer
+class ModifiedMultiLabelBinarizer(BaseEstimator, TransformerMixin):
+ def __init__(self):
+  self.mlb = MultiLabelBinarizer()
+
+ def fit(self, X, y=None):
+  # Extract first column as an array of iterable objects
+  X_series = pd.Series(X.iloc[:, 0])
+  self.mlb.fit(X_series)
+  return self
+
+ def transform(self, X):
+  X_series = pd.Series(X.iloc[:, 0])
+  return self.mlb.transform(X_series)
+
+ def get_feature_names_out(self, input_features=None):
+     prefix = input_features[0]
+     return [f"{prefix}_{c}" for c in self.mlb.classes_]
+  #return [f"{c}" for c in self.mlb.classes_]
+
+
 
 N_ROWS = 10
 RATING_THRESHOLD = 4.5
@@ -83,8 +150,16 @@ print(f"Dataset located at {dataset_dir}")
 
 
 # Parquet files need a different approach to only read a certain number of entries
-parquet_recipes = pq.ParquetFile(dataset_dir / "recipes.parquet")
-recipes_df = next(parquet_recipes.iter_batches(batch_size=N_ROWS)).to_pandas()
+parquet_recipes = pd.read_parquet(dataset_dir / "recipes.parquet")#pq.ParquetFile(dataset_dir / "recipes.parquet")
+#recipes_df = next(parquet_recipes.iter_batches(batch_size=N_ROWS)).to_pandas()
+recipes_df = parquet_recipes.sample(n=N_ROWS, random_state=67)
+
+
+
+#this applies the has_cuisine mask from your utils.py file
+recipes_df = recipes_df[recipes_df['Keywords'].apply(has_cuisine)].reset_index(drop=True)
+print(f"\n--- dataset CLEANED: {len(recipes_df)} recipes remaining after dropping unlabelled cuisines. ---\n")
+# ==========================================
 
 # Next we should do processing on the data
 
@@ -98,7 +173,7 @@ multicat_columns = []
 for column, method in feature_settings.items():
  if method == "drop":
   drop_columns.append(column)
- if method == "time":
+ elif method == "time":
   time_columns.append(column)
   standard_columns.append(column)
  elif method == "standard":
@@ -111,35 +186,89 @@ for column, method in feature_settings.items():
 # Convert ISO 8601 durations in time_columns to minutes
 for column in time_columns:
  recipes_df[column] = pd.to_timedelta(
- recipes_df[column].str.replace("PT", "").str.replace("H", " hours ").str.replace("M", " minutes")).dt.total_seconds() / 60
+ recipes_df[column].str.replace("PT", "").str.replace("H", " hours ").str.replace("M", " minutes").str.replace("S", " seconds")).dt.total_seconds() / 60
 
 # TODO: Split up data into training/testing sets
 
-# Specify which columns to drop
+# Keywords Processing ==================================================================================================
+# Keywords work like ingredients
+keyword_ings = recipes_df['Keywords'].tolist()
+#count_string_frequency(keyword_ings, 500)
 
+# Remove any None entries from Keywords column
+for i in range(0, len(keyword_ings)):
+    if keyword_ings[i][0] is None:
+        keyword_ings[i] = []
+
+# Only keep keywords that are relevant to cuisine type
+keep_keywords = [
+             'Canadian', 'Filipino', 'Brazilian', 'Danish', 'Turkish', 'South African', 'Indonesian',
+    'Peruvian', 'Palestinian', 'Finnish',
+            'Chinese', 'Indian', 'Australian', 'Southwest Asia (middle East)',
+             'Thai', 'Southwestern U.S.', 'Greek', 'Moroccan', 'Japanese',
+            'Spanish', 'German', 'Hawaiian', 'Swiss', 'Cajun', 'Austrian', 'Russian', 'Scottish', 'South American',
+            'Polish', 'Swedish', 'New Zealand', 'Malaysian', 'Native American', 'Dutch',
+            'Puerto Rican', 'Cuban', 'Vietnamese', 'Egyptian', 'Hungarian', 'Belgian', 'Portuguese'
+    'Asian', 'Mexican', 'African', 'Caribbean',  'Scandinavian',
+]
+
+new_keywords = ["None"] * len(keyword_ings)
+
+# TODO: We probably need a way to choose which cuisine to pick out of keywords list, currently it will simply
+# overwrite the category as it goes through keywords list
+for i in range(0, len(keyword_ings)):
+    keywords = keyword_ings[i]
+    #keep_words = []
+    for keyword in keywords:
+        if keyword in keep_keywords:
+            #keep_words.append(keyword)
+            new_keywords[i] = keyword
+
+# Put keywords back into dataset
+recipes_df['Keywords'] = new_keywords
+
+count_category_frequency(new_keywords, 500)
+
+
+# Ingredients Processing ===============================================================================================
 all_ings = recipes_df['RecipeIngredientParts'].tolist() #make it into a list for the for loops.
 
-#to fix the duplicates like "allpurpose flour" vs "flour"
-base_ings = [ #basic ingredients to combine.
-    "flour", "sugar", "oil", "chicken", "salt", "milk", "butter", 
-    "lemon", "garlic", "onion", "soy sauce", "rice", "yogurt", "egg"
-];
+# This is a bit janky, but order matters for this list, so we want to look for butter before salt to avoid classifying
+# unsalted butter as salt
+base_ings = ['tortilla', 'buttermilk', 'butter', 'coconut milk', 'brown sugar', 'sugar', 'onion', 'egg', 'milk', 'flour', 'garlic',
+ 'parmesan cheese', 'tomatoes', 'black pepper',
+ 'vanilla', 'mayonnaise', 'lemon', 'olive oil', 'cream cheese', 'soy sauce', 'celery',
+ 'paprika', 'cinnamon', 'cumin',
+ 'chicken broth', 'parsley', 'cheddar cheese',
+ 'margarine', 'carrot', 'cilantro', 'ground beef',
+ 'chili powder', 'carrots', 'mustard',
+ 'cider vinegar', 'ginger', 'oregano', 'nutmeg', 'potatoes',
+ 'chicken breast', 'chicken thigh', 'artichoke', 'blueberries', 'dill', 'lime', 'cayenne',
+ 'olives', 'bell pepper',  'ketchup',
+ 'salt', 'chocolate',
+ 'salsa', 'cucumber',
+ 'basil', 'yeast', 'water', 'strawberries', 'marshmallow',
+ 'cornmeal', 'wine vinegar', 'wine', 'salmon', 'pork', 'lamb', 'orange', 'apple', 'pear',
+              'coriander', 'sherry', 'turmeric', 'mushroom', 'clove', 'rice vinegar', 'rice', 'vinegar']
+
 
 for i in range(0, len(all_ings)):#until end of list,
-    current_recipe = all_ings[i];
+    # Remove duplicates from recipe ingredients
+    current_recipe = list(dict.fromkeys(all_ings[i]));
     cleaned_recipe = []; #new combined ingredient list
-    
+
     for j in range(0, len(current_recipe)): #loop for every ingredient
         item = str(current_recipe[j]).lower();#standardize lower
         
         for k in range(0, len(base_ings)):#shortens string with just 1 word.
-            if item.find(base_ings[k]) != -1:
+            if base_ings[k] in item and item != base_ings[k]:
                 item = base_ings[k];
                 break; #found match, stop searching!
                 
         cleaned_recipe.append(item);#add into the combined list
         
     all_ings[i] = cleaned_recipe; #overwrite list with clean version
+
 
 ing_counts = {};#check how many time actual ingredient shows up and adds to a count.
 for i in range(0, len(all_ings)):
@@ -168,6 +297,7 @@ for i in range(len(all_ings)):
 
 recipes_df['RecipeIngredientParts'] = all_ings #put list back into the main pandas table 
 
+count_string_frequency(all_ings, 500)
 
 X = recipes_df.drop(columns=drop_columns)
 
@@ -186,7 +316,8 @@ preprocessor = ColumnTransformer(
  transformers=[
   ("numerical", StandardScaler(), standard_columns),
   ("categorical", OneHotEncoder(handle_unknown="ignore"), categorical_columns),
-  ("multi-cat", ModifiedMultiLabelBinarizer(), multicat_columns),
+  ("ingredients", ModifiedMultiLabelBinarizer(), ["RecipeIngredientParts"]),
+  #("keywords", ModifiedMultiLabelBinarizer(), ["Keywords"]),
  ]
 )
 
