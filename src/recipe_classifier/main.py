@@ -303,3 +303,9 @@ if sample_y == 1:
 else:
     print(f"  {sample_y} (bad recipe)")
 print("\n")
+
+from knn_test import test_knn_accuracy
+
+results = test_knn_accuracy(
+    transformed_X_train, transformed_X_test, y_train, y_test
+)
