@@ -79,6 +79,71 @@ class ModifiedMultiLabelBinarizer(BaseEstimator, TransformerMixin):
 
 
 
+N_ROWS = 10
+RATING_THRESHOLD = 4.5
+MIN_INGREDIENT_FREQ = 2
+
+# Dictionary that contains preprocessing method for each column of recipes dataset
+# Specify which columns we:
+# drop - Delete from dataset
+# standard - Subtract mean and divide by std. deviation
+# time - Convert to number of minutes and then treat as standard
+# one-hot - Treat as a categorical feature, where an example has a 1 if it has that feature, 0 o.w.
+# multicat - Use MultiLabelBinarizer to take an array of categories and mark if the example has that feature
+feature_settings = {
+ 'RecipeId' : "drop",
+ 'Name' : "drop",
+ 'AuthorId' : "drop",
+ 'AuthorName' : "drop",
+ 'CookTime' : "time",
+ 'PrepTime' : "time",
+ 'TotalTime' : "drop",
+ 'DatePublished' : "drop",
+ 'Description' : "drop",
+ 'Images' : "drop",
+ 'RecipeCategory' : "one-hot",
+ 'Keywords' : "drop",
+ 'RecipeIngredientQuantities' : "drop",
+ 'RecipeIngredientParts' : "multicat",
+ 'AggregatedRating' : "drop",
+ 'ReviewCount' : "drop",
+ 'Calories' : "standard",
+ 'FatContent' : "standard",
+ 'SaturatedFatContent' : "standard",
+ 'CholesterolContent' : "standard",
+ 'SodiumContent' : "standard",
+ 'CarbohydrateContent' : "standard",
+ 'FiberContent' : "standard",
+ 'SugarContent' : "standard",
+ 'ProteinContent' : "standard",
+ 'RecipeServings' : "standard",
+ 'RecipeYield' : "drop",
+ 'RecipeInstructions' : "drop",
+}
+
+# Define a modified MultiLabelBinarizer for use in ColumnTransformer
+class ModifiedMultiLabelBinarizer(MultiLabelBinarizer):
+ def __init__(self):
+  self.mlb = MultiLabelBinarizer()
+
+ def fit(self, X, y=None):
+  # Extract first column as an array of iterable objects
+  X_series = pd.Series(X.iloc[:, 0]) if hasattr(X, "iloc") else pd.Series(X)
+  self.mlb.fit(X_series)
+  return self
+
+ def transform(self, X):
+  X_series = pd.Series(X.iloc[:, 0]) if hasattr(X, "iloc") else pd.Series(X)
+  return self.mlb.transform(X_series)
+
+ def fit_transform(self, X, y=None):
+  return self.fit(X, y).transform(X)
+
+ def get_feature_names_out(self, input_features=None):
+  return [f"{c}" for c in self.mlb.classes_]
+
+
+
 # Download the dataset, if it already exists in cache then this returns quickly
 dataset_dir = Path(kagglehub.dataset_download("irkaal/foodcom-recipes-and-reviews"))
 print(f"Dataset located at {dataset_dir}")
