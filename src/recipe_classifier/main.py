@@ -14,7 +14,7 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder, MultiLabelBinar
 from pathlib import Path
 from utils import *
 
-N_ROWS = 100
+N_ROWS = 500
 RATING_THRESHOLD = 4.5
 MIN_INGREDIENT_FREQ = 5
 MIN_KEYWORD_FREQ = 5
@@ -79,71 +79,6 @@ class ModifiedMultiLabelBinarizer(BaseEstimator, TransformerMixin):
 
 
 
-N_ROWS = 10
-RATING_THRESHOLD = 4.5
-MIN_INGREDIENT_FREQ = 2
-
-# Dictionary that contains preprocessing method for each column of recipes dataset
-# Specify which columns we:
-# drop - Delete from dataset
-# standard - Subtract mean and divide by std. deviation
-# time - Convert to number of minutes and then treat as standard
-# one-hot - Treat as a categorical feature, where an example has a 1 if it has that feature, 0 o.w.
-# multicat - Use MultiLabelBinarizer to take an array of categories and mark if the example has that feature
-feature_settings = {
- 'RecipeId' : "drop",
- 'Name' : "drop",
- 'AuthorId' : "drop",
- 'AuthorName' : "drop",
- 'CookTime' : "time",
- 'PrepTime' : "time",
- 'TotalTime' : "drop",
- 'DatePublished' : "drop",
- 'Description' : "drop",
- 'Images' : "drop",
- 'RecipeCategory' : "one-hot",
- 'Keywords' : "drop",
- 'RecipeIngredientQuantities' : "drop",
- 'RecipeIngredientParts' : "multicat",
- 'AggregatedRating' : "drop",
- 'ReviewCount' : "drop",
- 'Calories' : "standard",
- 'FatContent' : "standard",
- 'SaturatedFatContent' : "standard",
- 'CholesterolContent' : "standard",
- 'SodiumContent' : "standard",
- 'CarbohydrateContent' : "standard",
- 'FiberContent' : "standard",
- 'SugarContent' : "standard",
- 'ProteinContent' : "standard",
- 'RecipeServings' : "standard",
- 'RecipeYield' : "drop",
- 'RecipeInstructions' : "drop",
-}
-
-# Define a modified MultiLabelBinarizer for use in ColumnTransformer
-class ModifiedMultiLabelBinarizer(MultiLabelBinarizer):
- def __init__(self):
-  self.mlb = MultiLabelBinarizer()
-
- def fit(self, X, y=None):
-  # Extract first column as an array of iterable objects
-  X_series = pd.Series(X.iloc[:, 0]) if hasattr(X, "iloc") else pd.Series(X)
-  self.mlb.fit(X_series)
-  return self
-
- def transform(self, X):
-  X_series = pd.Series(X.iloc[:, 0]) if hasattr(X, "iloc") else pd.Series(X)
-  return self.mlb.transform(X_series)
-
- def fit_transform(self, X, y=None):
-  return self.fit(X, y).transform(X)
-
- def get_feature_names_out(self, input_features=None):
-  return [f"{c}" for c in self.mlb.classes_]
-
-
-
 # Download the dataset, if it already exists in cache then this returns quickly
 dataset_dir = Path(kagglehub.dataset_download("irkaal/foodcom-recipes-and-reviews"))
 print(f"Dataset located at {dataset_dir}")
@@ -155,11 +90,6 @@ parquet_recipes = pd.read_parquet(dataset_dir / "recipes.parquet")#pq.ParquetFil
 recipes_df = parquet_recipes.sample(n=N_ROWS, random_state=67)
 
 
-
-#this applies the has_cuisine mask from your utils.py file
-recipes_df = recipes_df[recipes_df['Keywords'].apply(has_cuisine)].reset_index(drop=True)
-print(f"\n--- dataset CLEANED: {len(recipes_df)} recipes remaining after dropping unlabelled cuisines. ---\n")
-# ==========================================
 
 # Next we should do processing on the data
 
@@ -190,7 +120,6 @@ for column in time_columns:
 
 # TODO: Split up data into training/testing sets
 
-# Keywords Processing ==================================================================================================
 # Keywords work like ingredients
 keyword_ings = recipes_df['Keywords'].tolist()
 #count_string_frequency(keyword_ings, 500)
@@ -227,30 +156,42 @@ for i in range(0, len(keyword_ings)):
 # Put keywords back into dataset
 recipes_df['Keywords'] = new_keywords
 
-count_category_frequency(new_keywords, 500)
+#ok sorry I changed this cause I realized could actually use none and filter that out. (╥﹏╥)
+recipes_df = recipes_df[recipes_df['Keywords'] != "None"].reset_index(drop=True) #if keywords is not 'none' then true, reset rows back to 0
 
+count_category_frequency(recipes_df['Keywords'].tolist(), 500)#changed to pass on new column, so dont print 'none'
 
-# Ingredients Processing ===============================================================================================
 all_ings = recipes_df['RecipeIngredientParts'].tolist() #make it into a list for the for loops.
 
-# This is a bit janky, but order matters for this list, so we want to look for butter before salt to avoid classifying
-# unsalted butter as salt
-base_ings = ['tortilla', 'buttermilk', 'butter', 'coconut milk', 'brown sugar', 'sugar', 'onion', 'egg', 'milk', 'flour', 'garlic',
- 'parmesan cheese', 'tomatoes', 'black pepper',
- 'vanilla', 'mayonnaise', 'lemon', 'olive oil', 'cream cheese', 'soy sauce', 'celery',
- 'paprika', 'cinnamon', 'cumin',
- 'chicken broth', 'parsley', 'cheddar cheese',
- 'margarine', 'carrot', 'cilantro', 'ground beef',
- 'chili powder', 'carrots', 'mustard',
- 'cider vinegar', 'ginger', 'oregano', 'nutmeg', 'potatoes',
- 'chicken breast', 'chicken thigh', 'artichoke', 'blueberries', 'dill', 'lime', 'cayenne',
- 'olives', 'bell pepper',  'ketchup',
- 'salt', 'chocolate',
- 'salsa', 'cucumber',
- 'basil', 'yeast', 'water', 'strawberries', 'marshmallow',
- 'cornmeal', 'wine vinegar', 'wine', 'salmon', 'pork', 'lamb', 'orange', 'apple', 'pear',
-              'coriander', 'sherry', 'turmeric', 'mushroom', 'clove', 'rice vinegar', 'rice', 'vinegar']
-
+#I swapped out the base_ings to check the multi word and it will now group the ingredients if it sees a keyword.
+base_ing = {
+    "tortilla" : ["flour tortilla", "corn tortilla", "tortilla"],
+    "peanut butter"  : ["peanut butter"],
+    "soy sauce"      : ["soy sauce"],
+    "olive oil"      : ["olive oil"],
+    "vegetable oil"  : ["vegetable oil", "canola oil"],
+    "chicken broth"  : ["chicken broth", "chicken stock"],
+    "cream cheese"   : ["cream cheese"],
+    "sour cream"     : ["sour cream"],
+    "baking powder"  : ["baking powder"],
+    "baking soda"    : ["baking soda"],
+    "vanilla"        : ["vanilla extract", "vanilla"],
+    "flour"          : ["all-purpose flour", "whole wheat flour", "bread flour", "flour"],
+    "sugar"          : ["brown sugar", "granulated sugar", "powdered sugar", "sugar"],
+    "chicken"        : ["boneless chicken", "chicken breast", "chicken thigh", "ground chicken", "chicken"],
+    "salt"           : ["sea salt", "kosher salt", "salt"],
+    "milk"           : ["skim milk", "whole milk", "milk"],
+    "butter"         : ["unsalted butter", "salted butter", "butter"],
+    "lemon"          : ["lemon juice", "lemon zest", "lemon"],
+    "garlic"         : ["minced garlic", "garlic cloves", "garlic"],
+    "onion"          : ["green onion", "red onion", "yellow onion", "spring onion", "onion"],
+    "yogurt"         : ["plain yogurt", "greek yogurt", "vanilla yogurt", "yogurt"],
+    "rice vinegar"   : ["rice vinegar"],
+    "rice"           : ["basmati rice", "jasmine rice", "brown rice", "long-grain rice", "rice"],
+    "egg"            : ["large eggs", "whole eggs", "eggs", "egg"],
+    "tomato"         : ["cherry tomatoes", "diced tomatoes", "tomato paste", "tomato sauce", "tomatoes", "tomato"],
+    "oil"            : ["oil"]
+}
 
 for i in range(0, len(all_ings)):#until end of list,
     # Remove duplicates from recipe ingredients
@@ -259,16 +200,23 @@ for i in range(0, len(all_ings)):#until end of list,
 
     for j in range(0, len(current_recipe)): #loop for every ingredient
         item = str(current_recipe[j]).lower();#standardize lower
+    
+        found_match = False;#needed to break out of both loops
         
-        for k in range(0, len(base_ings)):#shortens string with just 1 word.
-            if base_ings[k] in item and item != base_ings[k]:
-                item = base_ings[k];
-                break; #found match, stop searching!
+        for main_ing in base_ing:#loop through dictionary keys
+            
+            for alias in base_ing[main_ing]: #loop through the messy variations. checks the alias exist from base word
+                if alias in item and item != main_ing: #can find alias in ingredients, and ingredient needs to be different from existing to enter loop 
+                    item = main_ing; #overwrite it
+                    found_match = True; #now done
+                    break; #found match and gonna stop searching aliases!
+                    
+            if found_match:
+                break; # found match, stop searching main dictionary!
                 
         cleaned_recipe.append(item);#add into the combined list
         
     all_ings[i] = cleaned_recipe; #overwrite list with clean version
-
 
 ing_counts = {};#check how many time actual ingredient shows up and adds to a count.
 for i in range(0, len(all_ings)):
@@ -331,3 +279,21 @@ print(transformed_X[:1])
 print(y)
 
 # TODO: Take processed data and train a classifier, evaluate metrics, generate plots
+
+feature_names = preprocessor.get_feature_names_out()
+sample_x = transformed_X[0] 
+sample_y = y.iloc[0]          
+
+
+print("\nchecking first row:")
+print("x features:")
+for i in range(len(feature_names)):
+    if sample_x[i] != 0: #only print nonzero stuff example
+        print(f"  {feature_names[i]}: {sample_x[i]:.2f}")
+
+print("\ny label (answer):")
+if sample_y == 1:
+    print(f"  {sample_y} (good recipe)")
+else:
+    print(f"  {sample_y} (bad recipe)")
+print("\n")
