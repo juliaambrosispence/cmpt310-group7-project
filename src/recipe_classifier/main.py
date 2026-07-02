@@ -11,6 +11,7 @@ import pyarrow.parquet as pq
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, MultiLabelBinarizer
+from sklearn.model_selection import train_test_split
 from pathlib import Path
 from utils import *
 
