@@ -15,10 +15,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from pathlib import Path
 from utils import *
 
-N_ROWS = 500
+N_ROWS = 5000
 RATING_THRESHOLD = 4.5
 MIN_INGREDIENT_FREQ = 5
 MIN_KEYWORD_FREQ = 5
@@ -93,7 +94,7 @@ parquet_recipes = pd.read_parquet(dataset_dir / "recipes.parquet")#pq.ParquetFil
 #filtering out recipes that don't have a rating
 parquet_recipes = parquet_recipes.dropna(subset=['AggregatedRating']).reset_index(drop=True)
 #recipes_df = next(parquet_recipes.iter_batches(batch_size=N_ROWS)).to_pandas()
-recipes_df = parquet_recipes.sample(n=N_ROWS, random_state=67)
+recipes_df = parquet_recipes.sample(n=N_ROWS, random_state=67) #randomly picking N_ROWS amount from dataset
 
 
 
@@ -165,7 +166,7 @@ recipes_df['Keywords'] = new_keywords
 #ok sorry I changed this cause I realized could actually use none and filter that out. (╥﹏╥)
 recipes_df = recipes_df[recipes_df['Keywords'] != "None"].reset_index(drop=True) #if keywords is not 'none' then true, reset rows back to 0
 
-count_category_frequency(recipes_df['Keywords'].tolist(), 500)#changed to pass on new column, so dont print 'none'
+#count_category_frequency(recipes_df['Keywords'].tolist(), 500)#changed to pass on new column, so dont print 'none'
 
 all_ings = recipes_df['RecipeIngredientParts'].tolist() #make it into a list for the for loops.
 
@@ -251,13 +252,18 @@ for i in range(len(all_ings)):
 
 recipes_df['RecipeIngredientParts'] = all_ings #put list back into the main pandas table 
 
-count_string_frequency(all_ings, 500)
+#count_string_frequency(all_ings, 500) 
 
 X = recipes_df.drop(columns=drop_columns)
 
-# Our labels are 1 - good recipe if rating is above threshold, otherwise 0
+#labels are 1 - good recipe if rating is above threshold, otherwise 0
 y = (recipes_df['AggregatedRating'].astype(float) >= RATING_THRESHOLD).astype(int)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=67)
+
+print("Training set label counts:")
+print(y_train.value_counts())
+print("\nTest set label counts:")
+print(y_test.value_counts())
 
 # TODO: We may need to take a look at how one-hot encoding handles the RecipeCategory and the ingredients
 # The type of encoding we do will make a new feature out of every unique string we see in the category and ingredient
@@ -280,32 +286,40 @@ preprocessor = ColumnTransformer(
 transformed_X_train = preprocessor.fit_transform(X_train)
 transformed_X_test = preprocessor.transform(X_test)
 
-knn = KNeighborsClassifier(n_neighbors=5)
+knn = KNeighborsClassifier(n_neighbors=7)
 knn.fit(transformed_X_train, y_train)
+y_pred = knn.predict(transformed_X_test) #predictions based on the test set
+accuracy = accuracy_score(y_test, y_pred) #accuracy of comparing predictions to the actual labels
+print(f"\nKNN accuracy: {accuracy:.2%}")
+cm = confusion_matrix(y_test, y_pred) #confusion matrix for more insight
+print("\nConfusion matrix:")
+print(cm)
+print("\nAll scores:") #classification report for more insight
+print(classification_report(y_test, y_pred, target_names=["bad-recipe", "good-recipe"]))
 
 # Print resulting ndarray for just first row to see results
 np.set_printoptions(threshold=sys.maxsize)
-print(preprocessor.get_feature_names_out())
-print(transformed_X_train[:1])
-print(y_train)
+# print(preprocessor.get_feature_names_out())
+# print(transformed_X_train[:1])
+# print(y_train)
 
 # TODO: Take processed data and train a classifier, evaluate metrics, generate plots
 
-feature_names = preprocessor.get_feature_names_out()
-sample_x = transformed_X_train[0]
-sample_y = y_train.iloc[0]
+# feature_names = preprocessor.get_feature_names_out()
+# sample_x = transformed_X_train[0]
+# sample_y = y_train.iloc[0]
 
 
-print("\nchecking first row:")
-print("x features:")
-for i in range(len(feature_names)):
+# print("\nchecking first row:")
+# print("x features:")
+# for i in range(len(feature_names)):
     
-    if sample_x[i] != 0: #only print nonzero stuff example
-        print(f"  {feature_names[i]}: {sample_x[i]:.2f}")
+#     if sample_x[i] != 0: #only print nonzero stuff example
+#         print(f"  {feature_names[i]}: {sample_x[i]:.2f}")
 
-print("\ny label (answer):")
-if sample_y == 1:
-    print(f"  {sample_y} (good recipe)")
-else:
-    print(f"  {sample_y} (bad recipe)")
-print("\n")
+# print("\ny label (answer):")
+# if sample_y == 1:
+#     print(f"  {sample_y} (good recipe)")
+# else:
+#     print(f"  {sample_y} (bad recipe)")
+# print("\n")
