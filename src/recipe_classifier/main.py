@@ -303,6 +303,66 @@ np.set_printoptions(threshold=sys.maxsize)
 # print(transformed_X_train[:1])
 # print(y_train)
 
+
+
+
+
+#cuisine classifier, knn for cuisine prediction
+target_cuisine = recipes_df['Keywords']; #keywords column of cuisine types
+
+#split random 
+y_train_cuisine = target_cuisine.iloc[y_train.index]; #training data. iloc index position rows. cusine label for every recipe.
+#print(y_train_cuisine)
+y_test_cuisine = target_cuisine.iloc[y_test.index]; #testing data [maxican, german, chinese]
+#print(y_test_cuisine)
+
+# Apply fit of data based on the methods we specified to each set of columns, then apply transformations
+#turns the ingredients to binary numbers and takes standardized mean values
+cuisine_prep = ColumnTransformer(
+    transformers=[
+        ("numerical", Pipeline([("imputer", SimpleImputer(strategy="mean")), ("scaler", StandardScaler())]), standard_columns),
+        ("ingredients", ModifiedMultiLabelBinarizer(), ["RecipeIngredientParts"]),
+    ]
+);
+#create row of all ingredient names every recpie
+x_train_c = cuisine_prep.fit_transform(X_train);
+x_test_c = cuisine_prep.transform(X_test); 
+
+#set up knn for cuisine k=7 same as before
+knn2 = KNeighborsClassifier(n_neighbors=7); #7 closest values
+knn2.fit(x_train_c, y_train_cuisine); #plots on knn model but for cuisines. y_train_cuisine cusine labels   
+
+#Euclidean distance of each, take 7 closest, return which ones appear the most.
+preds2 = knn2.predict(x_test_c); #check the nearest cuisine neighbours, picks the cuisine with the highest amount around it.
+acc2 = accuracy_score(y_test_cuisine, preds2);
+print("\ncuisine KNN accuracy:", round(acc2 * 100, 2), "%");
+
+#get probability for each cuisine
+probs = knn2.predict_proba(x_test_c); #how out of the k=7 did they guess x/7 = certain %
+classes = knn2.classes_; #[italian, japanese, mexican, etc]
+
+#print first 5 recipes so we can see if it works
+limit = 5;
+if len(probs) < 5:  #incase test set is small
+    limit = len(probs);
+
+for curr_recipe in range(0, limit):
+
+    original_idx = y_test_cuisine.index[curr_recipe];#original row index so can look up the name in the main dataset
+    recipe_name = recipes_df['Name'].loc[original_idx];
+    
+    print(f"\n||| the cuisine probability distrubution (recipe {curr_recipe}: {recipe_name}) |||");
+    
+    #loop through every cuisine class
+    for i in range(0, len(classes)):
+        chance = probs[curr_recipe][i];
+        
+        #only print it if the chance isnt 0
+        if chance > 0:
+            percentage = chance * 100; #turn into percent
+            print(f"  {classes[i]}: {percentage:.1f}%");
+            
+
 # TODO: Take processed data and train a classifier, evaluate metrics, generate plots
 
 # feature_names = preprocessor.get_feature_names_out()
