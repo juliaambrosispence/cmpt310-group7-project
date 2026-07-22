@@ -164,25 +164,26 @@ for i in range(0, len(keyword_ings)):
                 #print("Replacing", new_keywords[i], "with", keyword)
                 new_keywords[i] = keyword
 
-# Remove any keywords that do not appear a min number of times in the dataset
-# Count the occurrence of each keyword
-keyword_dict = {}
-for keyword in new_keywords:
-    if keyword not in keyword_dict:
-        keyword_dict[keyword] = 1
-    else:
-        keyword_dict[keyword] += 1
-
-# Add any keywords with insufficient counts to a filter list
-filtered_keywords = []
-for keyword in keyword_dict:
-    if keyword_dict[keyword] < MIN_KEYWORD_FREQ:
-        filtered_keywords.append(keyword)
-
-# Set the entry in the Keyword column to None so that they get filtered
-for i in range(0, len(new_keywords)):
-    if new_keywords[i] in filtered_keywords:
-        new_keywords[i] = "None"
+#
+# # Remove any keywords that do not appear a min number of times in the dataset
+# # Count the occurrence of each keyword
+# keyword_dict = {}
+# for keyword in new_keywords:
+#     if keyword not in keyword_dict:
+#         keyword_dict[keyword] = 1
+#     else:
+#         keyword_dict[keyword] += 1
+#
+# # Add any keywords with insufficient counts to a filter list
+# filtered_keywords = []
+# for keyword in keyword_dict:
+#     if keyword_dict[keyword] < MIN_KEYWORD_FREQ:
+#         filtered_keywords.append(keyword)
+#
+# # Set the entry in the Keyword column to None so that they get filtered
+# for i in range(0, len(new_keywords)):
+#     if new_keywords[i] in filtered_keywords:
+#         new_keywords[i] = "None"
 
 # Put keywords back into dataset
 recipes_df['Keywords'] = new_keywords
@@ -346,7 +347,7 @@ feature_names = preprocessor.get_feature_names_out()
 sample_x = transformed_X_train[0]
 sample_y = y_train.iloc[0]
 
-
+# Look at features of first row ########################
 print("\nchecking first row:")
 print("x features:")
 for i in range(len(feature_names)):
@@ -361,6 +362,7 @@ else:
     print(f"  {sample_y} (bad recipe)")
 print("\n")
 
+# Recipe Classifier Using KNN Test #########
 from knn_test import test_knn_accuracy
 
 results = test_knn_accuracy(
@@ -368,27 +370,21 @@ results = test_knn_accuracy(
 )
 
 
-
-# KNNtime stuff #####################################################
-knn = KNeighborsClassifier(n_neighbors=7)
-knn.fit(transformed_X_train, y_train)
-y_pred = knn.predict(transformed_X_test) #predictions based on the test set
-accuracy = accuracy_score(y_test, y_pred) #accuracy of comparing predictions to the actual labels
-print(f"\nKNN accuracy: {accuracy:.2%}")
-cm = confusion_matrix(y_test, y_pred) #confusion matrix for more insight
-print("\nConfusion matrix:")
-print(cm)
-print("\nAll scores:") #classification report for more insight
-print(classification_report(y_test, y_pred, target_names=["bad-recipe", "good-recipe"]))
-
-# Print resulting ndarray for just first row to see results
-np.set_printoptions(threshold=sys.maxsize)
-# print(preprocessor.get_feature_names_out())
-# print(transformed_X_train[:1])
-# print(y_train)
+# #Recipe Classifier ################
+# knn = KNeighborsClassifier(n_neighbors=7)
+# knn.fit(transformed_X_train, y_train)
+# y_pred = knn.predict(transformed_X_test) #predictions based on the test set
+# accuracy = accuracy_score(y_test, y_pred) #accuracy of comparing predictions to the actual labels
+# print(f"\nKNN accuracy: {accuracy:.2%}")
+# cm = confusion_matrix(y_test, y_pred) #confusion matrix for more insight
+# print("\nConfusion matrix:")
+# print(cm)
+# print("\nAll scores:") #classification report for more insight
+# print(classification_report(y_test, y_pred, target_names=["bad-recipe", "good-recipe"]))
 
 
-#cuisine classifier, knn for cuisine prediction
+
+# Cuisine classifier, knn for cuisine prediction #############
 target_cuisine = recipes_df['Keywords']; #keywords column of cuisine types
 
 #split random
@@ -442,6 +438,7 @@ for curr_recipe in range(0, limit):
         if chance > 0:
             percentage = chance * 100; #turn into percent
             print(f"  {classes[i]}: {percentage:.1f}%");
+
 
 
 # TODO: Take processed data and train a classifier, evaluate metrics, generate plots
