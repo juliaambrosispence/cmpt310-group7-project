@@ -158,7 +158,31 @@ for i in range(0, len(keyword_ings)):
     for keyword in keywords:
         if keyword in keep_keywords:
             #keep_words.append(keyword)
-            new_keywords[i] = keyword
+
+            # Only assign a keyword once, the first one that appears
+            if new_keywords[i] == "None":
+                #print("Replacing", new_keywords[i], "with", keyword)
+                new_keywords[i] = keyword
+
+# Remove any keywords that do not appear a min number of times in the dataset
+# Count the occurrence of each keyword
+keyword_dict = {}
+for keyword in new_keywords:
+    if keyword not in keyword_dict:
+        keyword_dict[keyword] = 1
+    else:
+        keyword_dict[keyword] += 1
+
+# Add any keywords with insufficient counts to a filter list
+filtered_keywords = []
+for keyword in keyword_dict:
+    if keyword_dict[keyword] < MIN_KEYWORD_FREQ:
+        filtered_keywords.append(keyword)
+
+# Set the entry in the Keyword column to None so that they get filtered
+for i in range(0, len(new_keywords)):
+    if new_keywords[i] in filtered_keywords:
+        new_keywords[i] = "None"
 
 # Put keywords back into dataset
 recipes_df['Keywords'] = new_keywords
@@ -166,9 +190,13 @@ recipes_df['Keywords'] = new_keywords
 #ok sorry I changed this cause I realized could actually use none and filter that out. (╥﹏╥)
 recipes_df = recipes_df[recipes_df['Keywords'] != "None"].reset_index(drop=True) #if keywords is not 'none' then true, reset rows back to 0
 
-#count_category_frequency(recipes_df['Keywords'].tolist(), 500)#changed to pass on new column, so dont print 'none'
+count_category_frequency(recipes_df['Keywords'].tolist(), 500)#changed to pass on new column, so dont print 'none'
 
 all_ings = recipes_df['RecipeIngredientParts'].tolist() #make it into a list for the for loops.
+
+# Prefixes that we want to remove from ingredient names
+# Some ingredients are written like '1/3 cup of fresh mint'
+prefix_remove = [ "fresh", "of", "ground", "dried", "crushed", "lean", "frozen", 'medium', 'small', 'large' ]
 
 #I swapped out the base_ings to check the multi word and it will now group the ingredients if it sees a keyword.
 base_ing = {
@@ -190,6 +218,7 @@ base_ing = {
     "milk"           : ["skim milk", "whole milk", "milk"],
     "butter"         : ["unsalted butter", "salted butter", "butter"],
     "lemon"          : ["lemon juice", "lemon zest", "lemon"],
+    "lime"           : ["lime juice", "lime zest", "lime"],
     "garlic"         : ["minced garlic", "garlic cloves", "garlic"],
     "onion"          : ["green onion", "red onion", "yellow onion", "spring onion", "onion"],
     "yogurt"         : ["plain yogurt", "greek yogurt", "vanilla yogurt", "yogurt"],
@@ -197,7 +226,12 @@ base_ing = {
     "rice"           : ["basmati rice", "jasmine rice", "brown rice", "long-grain rice", "rice"],
     "egg"            : ["large eggs", "whole eggs", "eggs", "egg"],
     "tomato"         : ["cherry tomatoes", "diced tomatoes", "tomato paste", "tomato sauce", "tomatoes", "tomato"],
-    "oil"            : ["oil"]
+    "oil"            : ["oil"],
+    "cumin"          : ["cumin", "ground cumin"],
+    "ginger"         : ["ginger", "fresh ginger", "ground ginger"],
+    "cinnamon"       : ["cinnamon", "ground cinnamon"],
+    "black pepper"   : ["black pepper", "ground pepper"],
+    "water"          : ["water", "warm water"],
 }
 
 for i in range(0, len(all_ings)):#until end of list,
@@ -207,7 +241,19 @@ for i in range(0, len(all_ings)):#until end of list,
 
     for j in range(0, len(current_recipe)): #loop for every ingredient
         item = str(current_recipe[j]).lower();#standardize lower
-    
+
+        # Remove any prefixes first
+        # May need to remove multiple prefixes
+        split_item = item.split(" ")
+        words = len(split_item)
+        while words > 0:
+            if split_item[0] in prefix_remove:
+                split_item.pop(0)
+                words -= 1
+            else:
+                break
+
+        item = " ".join(split_item)
         found_match = False;#needed to break out of both loops
         
         for main_ing in base_ing:#loop through dictionary keys
@@ -252,7 +298,7 @@ for i in range(len(all_ings)):
 
 recipes_df['RecipeIngredientParts'] = all_ings #put list back into the main pandas table 
 
-#count_string_frequency(all_ings, 500) 
+#count_string_frequency(all_ings, 500)
 
 X = recipes_df.drop(columns=drop_columns)
 
@@ -264,6 +310,8 @@ print("Training set label counts:")
 print(y_train.value_counts())
 print("\nTest set label counts:")
 print(y_test.value_counts())
+
+#print(X["Keywords"].value_counts())
 
 # TODO: We may need to take a look at how one-hot encoding handles the RecipeCategory and the ingredients
 # The type of encoding we do will make a new feature out of every unique string we see in the category and ingredient
@@ -304,13 +352,10 @@ np.set_printoptions(threshold=sys.maxsize)
 # print(y_train)
 
 
-
-
-
 #cuisine classifier, knn for cuisine prediction
 target_cuisine = recipes_df['Keywords']; #keywords column of cuisine types
 
-#split random 
+#split random
 y_train_cuisine = target_cuisine.iloc[y_train.index]; #training data. iloc index position rows. cusine label for every recipe.
 #print(y_train_cuisine)
 y_test_cuisine = target_cuisine.iloc[y_test.index]; #testing data [maxican, german, chinese]
@@ -326,11 +371,11 @@ cuisine_prep = ColumnTransformer(
 );
 #create row of all ingredient names every recpie
 x_train_c = cuisine_prep.fit_transform(X_train);
-x_test_c = cuisine_prep.transform(X_test); 
+x_test_c = cuisine_prep.transform(X_test);
 
 #set up knn for cuisine k=7 same as before
 knn2 = KNeighborsClassifier(n_neighbors=7); #7 closest values
-knn2.fit(x_train_c, y_train_cuisine); #plots on knn model but for cuisines. y_train_cuisine cusine labels   
+knn2.fit(x_train_c, y_train_cuisine); #plots on knn model but for cuisines. y_train_cuisine cusine labels
 
 #Euclidean distance of each, take 7 closest, return which ones appear the most.
 preds2 = knn2.predict(x_test_c); #check the nearest cuisine neighbours, picks the cuisine with the highest amount around it.
@@ -350,18 +395,18 @@ for curr_recipe in range(0, limit):
 
     original_idx = y_test_cuisine.index[curr_recipe];#original row index so can look up the name in the main dataset
     recipe_name = recipes_df['Name'].loc[original_idx];
-    
+
     print(f"\n||| the cuisine probability distrubution (recipe {curr_recipe}: {recipe_name}) |||");
-    
+
     #loop through every cuisine class
     for i in range(0, len(classes)):
         chance = probs[curr_recipe][i];
-        
+
         #only print it if the chance isnt 0
         if chance > 0:
             percentage = chance * 100; #turn into percent
             print(f"  {classes[i]}: {percentage:.1f}%");
-            
+
 
 # TODO: Take processed data and train a classifier, evaluate metrics, generate plots
 
@@ -373,7 +418,7 @@ for curr_recipe in range(0, limit):
 # print("\nchecking first row:")
 # print("x features:")
 # for i in range(len(feature_names)):
-    
+
 #     if sample_x[i] != 0: #only print nonzero stuff example
 #         print(f"  {feature_names[i]}: {sample_x[i]:.2f}")
 
