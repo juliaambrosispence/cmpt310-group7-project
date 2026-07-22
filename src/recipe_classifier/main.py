@@ -14,10 +14,12 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder, MultiLabelBinar
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from pathlib import Path
 from utils import *
 
-N_ROWS = 500
+N_ROWS = 5000
 RATING_THRESHOLD = 4.5
 MIN_INGREDIENT_FREQ = 5
 MIN_KEYWORD_FREQ = 5
@@ -89,8 +91,10 @@ print(f"Dataset located at {dataset_dir}")
 
 # Parquet files need a different approach to only read a certain number of entries
 parquet_recipes = pd.read_parquet(dataset_dir / "recipes.parquet")#pq.ParquetFile(dataset_dir / "recipes.parquet")
+#filtering out recipes that don't have a rating
+parquet_recipes = parquet_recipes.dropna(subset=['AggregatedRating']).reset_index(drop=True)
 #recipes_df = next(parquet_recipes.iter_batches(batch_size=N_ROWS)).to_pandas()
-recipes_df = parquet_recipes.sample(n=N_ROWS, random_state=67)
+recipes_df = parquet_recipes.sample(n=N_ROWS, random_state=67) #randomly picking N_ROWS amount from dataset
 
 
 
@@ -154,7 +158,31 @@ for i in range(0, len(keyword_ings)):
     for keyword in keywords:
         if keyword in keep_keywords:
             #keep_words.append(keyword)
-            new_keywords[i] = keyword
+
+            # Only assign a keyword once, the first one that appears
+            if new_keywords[i] == "None":
+                #print("Replacing", new_keywords[i], "with", keyword)
+                new_keywords[i] = keyword
+
+# Remove any keywords that do not appear a min number of times in the dataset
+# Count the occurrence of each keyword
+keyword_dict = {}
+for keyword in new_keywords:
+    if keyword not in keyword_dict:
+        keyword_dict[keyword] = 1
+    else:
+        keyword_dict[keyword] += 1
+
+# Add any keywords with insufficient counts to a filter list
+filtered_keywords = []
+for keyword in keyword_dict:
+    if keyword_dict[keyword] < MIN_KEYWORD_FREQ:
+        filtered_keywords.append(keyword)
+
+# Set the entry in the Keyword column to None so that they get filtered
+for i in range(0, len(new_keywords)):
+    if new_keywords[i] in filtered_keywords:
+        new_keywords[i] = "None"
 
 # Put keywords back into dataset
 recipes_df['Keywords'] = new_keywords
@@ -165,6 +193,10 @@ recipes_df = recipes_df[recipes_df['Keywords'] != "None"].reset_index(drop=True)
 count_category_frequency(recipes_df['Keywords'].tolist(), 500)#changed to pass on new column, so dont print 'none'
 
 all_ings = recipes_df['RecipeIngredientParts'].tolist() #make it into a list for the for loops.
+
+# Prefixes that we want to remove from ingredient names
+# Some ingredients are written like '1/3 cup of fresh mint'
+prefix_remove = [ "fresh", "of", "ground", "dried", "crushed", "lean", "frozen", 'medium', 'small', 'large' ]
 
 #I swapped out the base_ings to check the multi word and it will now group the ingredients if it sees a keyword.
 base_ing = {
@@ -186,6 +218,7 @@ base_ing = {
     "milk"           : ["skim milk", "whole milk", "milk"],
     "butter"         : ["unsalted butter", "salted butter", "butter"],
     "lemon"          : ["lemon juice", "lemon zest", "lemon"],
+    "lime"           : ["lime juice", "lime zest", "lime"],
     "garlic"         : ["minced garlic", "garlic cloves", "garlic"],
     "onion"          : ["green onion", "red onion", "yellow onion", "spring onion", "onion"],
     "yogurt"         : ["plain yogurt", "greek yogurt", "vanilla yogurt", "yogurt"],
@@ -193,7 +226,12 @@ base_ing = {
     "rice"           : ["basmati rice", "jasmine rice", "brown rice", "long-grain rice", "rice"],
     "egg"            : ["large eggs", "whole eggs", "eggs", "egg"],
     "tomato"         : ["cherry tomatoes", "diced tomatoes", "tomato paste", "tomato sauce", "tomatoes", "tomato"],
-    "oil"            : ["oil"]
+    "oil"            : ["oil"],
+    "cumin"          : ["cumin", "ground cumin"],
+    "ginger"         : ["ginger", "fresh ginger", "ground ginger"],
+    "cinnamon"       : ["cinnamon", "ground cinnamon"],
+    "black pepper"   : ["black pepper", "ground pepper"],
+    "water"          : ["water", "warm water"],
 }
 
 for i in range(0, len(all_ings)):#until end of list,
@@ -203,7 +241,19 @@ for i in range(0, len(all_ings)):#until end of list,
 
     for j in range(0, len(current_recipe)): #loop for every ingredient
         item = str(current_recipe[j]).lower();#standardize lower
-    
+
+        # Remove any prefixes first
+        # May need to remove multiple prefixes
+        split_item = item.split(" ")
+        words = len(split_item)
+        while words > 0:
+            if split_item[0] in prefix_remove:
+                split_item.pop(0)
+                words -= 1
+            else:
+                break
+
+        item = " ".join(split_item)
         found_match = False;#needed to break out of both loops
         
         for main_ing in base_ing:#loop through dictionary keys
@@ -248,13 +298,20 @@ for i in range(len(all_ings)):
 
 recipes_df['RecipeIngredientParts'] = all_ings #put list back into the main pandas table 
 
-count_string_frequency(all_ings, 500)
+#count_string_frequency(all_ings, 500)
 
 X = recipes_df.drop(columns=drop_columns)
 
 # Our labels are 1 - good recipe if rating is above threshold, otherwise 0
 y = (recipes_df['AggregatedRating'].astype(float) >= RATING_THRESHOLD).astype(int)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=67)
+
+print("Training set label counts:")
+print(y_train.value_counts())
+print("\nTest set label counts:")
+print(y_test.value_counts())
+
+#print(X["Keywords"].value_counts())
 
 # TODO: We may need to take a look at how one-hot encoding handles the RecipeCategory and the ingredients
 # The type of encoding we do will make a new feature out of every unique string we see in the category and ingredient
@@ -279,9 +336,9 @@ transformed_X_test = preprocessor.transform(X_test)
 
 # Print resulting ndarray for just first row to see results
 np.set_printoptions(threshold=sys.maxsize)
-print(preprocessor.get_feature_names_out())
-print(transformed_X_train[:1])
-print(y_train)
+#print(preprocessor.get_feature_names_out())
+#print(transformed_X_train[:1])
+#print(y_train)
 
 # TODO: Take processed data and train a classifier, evaluate metrics, generate plots
 
@@ -309,3 +366,101 @@ from knn_test import test_knn_accuracy
 results = test_knn_accuracy(
     transformed_X_train, transformed_X_test, y_train, y_test
 )
+
+
+
+# KNNtime stuff #####################################################
+knn = KNeighborsClassifier(n_neighbors=7)
+knn.fit(transformed_X_train, y_train)
+y_pred = knn.predict(transformed_X_test) #predictions based on the test set
+accuracy = accuracy_score(y_test, y_pred) #accuracy of comparing predictions to the actual labels
+print(f"\nKNN accuracy: {accuracy:.2%}")
+cm = confusion_matrix(y_test, y_pred) #confusion matrix for more insight
+print("\nConfusion matrix:")
+print(cm)
+print("\nAll scores:") #classification report for more insight
+print(classification_report(y_test, y_pred, target_names=["bad-recipe", "good-recipe"]))
+
+# Print resulting ndarray for just first row to see results
+np.set_printoptions(threshold=sys.maxsize)
+# print(preprocessor.get_feature_names_out())
+# print(transformed_X_train[:1])
+# print(y_train)
+
+
+#cuisine classifier, knn for cuisine prediction
+target_cuisine = recipes_df['Keywords']; #keywords column of cuisine types
+
+#split random
+y_train_cuisine = target_cuisine.iloc[y_train.index]; #training data. iloc index position rows. cusine label for every recipe.
+#print(y_train_cuisine)
+y_test_cuisine = target_cuisine.iloc[y_test.index]; #testing data [maxican, german, chinese]
+#print(y_test_cuisine)
+
+# Apply fit of data based on the methods we specified to each set of columns, then apply transformations
+#turns the ingredients to binary numbers and takes standardized mean values
+cuisine_prep = ColumnTransformer(
+    transformers=[
+        ("numerical", Pipeline([("imputer", SimpleImputer(strategy="mean")), ("scaler", StandardScaler())]), standard_columns),
+        ("ingredients", ModifiedMultiLabelBinarizer(), ["RecipeIngredientParts"]),
+    ]
+);
+#create row of all ingredient names every recpie
+x_train_c = cuisine_prep.fit_transform(X_train);
+x_test_c = cuisine_prep.transform(X_test);
+
+#set up knn for cuisine k=7 same as before
+knn2 = KNeighborsClassifier(n_neighbors=7); #7 closest values
+knn2.fit(x_train_c, y_train_cuisine); #plots on knn model but for cuisines. y_train_cuisine cusine labels
+
+#Euclidean distance of each, take 7 closest, return which ones appear the most.
+preds2 = knn2.predict(x_test_c); #check the nearest cuisine neighbours, picks the cuisine with the highest amount around it.
+acc2 = accuracy_score(y_test_cuisine, preds2);
+print("\ncuisine KNN accuracy:", round(acc2 * 100, 2), "%");
+
+#get probability for each cuisine
+probs = knn2.predict_proba(x_test_c); #how out of the k=7 did they guess x/7 = certain %
+classes = knn2.classes_; #[italian, japanese, mexican, etc]
+
+#print first 5 recipes so we can see if it works
+limit = 5;
+if len(probs) < 5:  #incase test set is small
+    limit = len(probs);
+
+for curr_recipe in range(0, limit):
+
+    original_idx = y_test_cuisine.index[curr_recipe];#original row index so can look up the name in the main dataset
+    recipe_name = recipes_df['Name'].loc[original_idx];
+
+    print(f"\n||| the cuisine probability distrubution (recipe {curr_recipe}: {recipe_name}) |||");
+
+    #loop through every cuisine class
+    for i in range(0, len(classes)):
+        chance = probs[curr_recipe][i];
+
+        #only print it if the chance isnt 0
+        if chance > 0:
+            percentage = chance * 100; #turn into percent
+            print(f"  {classes[i]}: {percentage:.1f}%");
+
+
+# TODO: Take processed data and train a classifier, evaluate metrics, generate plots
+
+# feature_names = preprocessor.get_feature_names_out()
+# sample_x = transformed_X_train[0]
+# sample_y = y_train.iloc[0]
+
+
+# print("\nchecking first row:")
+# print("x features:")
+# for i in range(len(feature_names)):
+
+#     if sample_x[i] != 0: #only print nonzero stuff example
+#         print(f"  {feature_names[i]}: {sample_x[i]:.2f}")
+
+# print("\ny label (answer):")
+# if sample_y == 1:
+#     print(f"  {sample_y} (good recipe)")
+# else:
+#     print(f"  {sample_y} (bad recipe)")
+# print("\n")
