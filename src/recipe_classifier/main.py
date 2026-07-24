@@ -19,10 +19,10 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 from pathlib import Path
 from utils import *
 
-N_ROWS = 5000
-RATING_THRESHOLD = 4.5
-MIN_INGREDIENT_FREQ = 5
-MIN_KEYWORD_FREQ = 5
+N_ROWS = 15000
+RATING_THRESHOLD = 5
+MIN_INGREDIENT_FREQ = 50
+MIN_KEYWORD_FREQ = 60
 
 # Dictionary that contains preprocessing method for each column of recipes dataset
 # Specify which columns we:
@@ -138,14 +138,29 @@ for i in range(0, len(keyword_ings)):
 
 # Only keep keywords that are relevant to cuisine type
 keep_keywords = [
-             'Canadian', 'Filipino', 'Brazilian', 'Danish', 'Turkish', 'South African', 'Indonesian',
-    'Peruvian', 'Palestinian', 'Finnish',
-            'Chinese', 'Indian', 'Australian', 'Southwest Asia (middle East)',
-             'Thai', 'Southwestern U.S.', 'Greek', 'Moroccan', 'Japanese',
-            'Spanish', 'German', 'Hawaiian', 'Swiss', 'Cajun', 'Austrian', 'Russian', 'Scottish', 'South American',
-            'Polish', 'Swedish', 'New Zealand', 'Malaysian', 'Native American', 'Dutch',
-            'Puerto Rican', 'Cuban', 'Vietnamese', 'Egyptian', 'Hungarian', 'Belgian', 'Portuguese'
-    'Asian', 'Mexican', 'African', 'Caribbean',  'Scandinavian',
+    #          'Canadian', 'Filipino', 'Brazilian', 'Danish', 'Turkish', 'South African', 'Indonesian',
+    # 'Peruvian', 'Palestinian', 'Finnish',
+    #         'Chinese', 'Indian', 'Australian', 'Southwest Asia (middle East)',
+    #          'Thai', 'Southwestern U.S.', 'Greek', 'Moroccan', 'Japanese',
+    #         'Spanish', 'German', 'Hawaiian', 'Swiss', 'Cajun', 'Austrian', 'Russian', 'Scottish', 'South American',
+    #         'Polish', 'Swedish', 'New Zealand', 'Malaysian', 'Native American', 'Dutch',
+    #         'Puerto Rican', 'Cuban', 'Vietnamese', 'Egyptian', 'Hungarian', 'Belgian', 'Portuguese'
+    # 'Asian', 'Mexican', 'African', 'Caribbean',  'Scandinavian',
+    #
+    #
+    #
+    #'European', 'Asian', 'Canadian', 'Mexican', 'Indian'
+    #'European',
+    'Asian',
+    'Mexican',  'Canadian',
+    'Southwestern U.S.',
+    'Australian', 'Indian', 'African', 'Chinese', 'Southwest Asia (middle East)',
+    #'Tex Mex',
+    'Greek', 'Caribbean', 'South American', 'Cajun', 'German',
+    'Scandinavian', 'Creole', 'Spanish', 'Thai', 'Moroccan', 'Japanese', 'Scottish', 'Portuguese', 'New Zealand', 'Hawaiian',  'Swiss', 'Korean', 'Lebanese', 'South African', 'Hungarian', 'Russian', 'Vietnamese', 'Welsh', 'Swedish', 'Brazilian', 'Austrian',
+   'Turkish', 'Indonesian', 'Norwegian', 'Peruvian', 'Native American', 'Polynesian', 'Dutch', 'Polish', 'Danish', 'Belgian', 'Szechuan', 'Pennsylvania Dutch', 'Czech', 'Egyptian', 'Cuban', 'Finnish', 'Filipino', 'Malaysian', 'Venezuelan',
+    'Guatemalan', 'Nigerian','Colombian', 'Palestinian', 'Puerto Rican', 'Ethiopian', 'Iraqi', 'Cantonese', 'Cambodian', 'Hunan', 'Chilean', 'Pakistani', 'Icelandic', 'Costa Rican', 'Nepalese', 'Sudanese', 'Honduran', 'Ecuadorean'
+
 ]
 
 new_keywords = ["None"] * len(keyword_ings)
@@ -164,26 +179,26 @@ for i in range(0, len(keyword_ings)):
                 #print("Replacing", new_keywords[i], "with", keyword)
                 new_keywords[i] = keyword
 
-#
-# # Remove any keywords that do not appear a min number of times in the dataset
-# # Count the occurrence of each keyword
-# keyword_dict = {}
-# for keyword in new_keywords:
-#     if keyword not in keyword_dict:
-#         keyword_dict[keyword] = 1
-#     else:
-#         keyword_dict[keyword] += 1
-#
-# # Add any keywords with insufficient counts to a filter list
-# filtered_keywords = []
-# for keyword in keyword_dict:
-#     if keyword_dict[keyword] < MIN_KEYWORD_FREQ:
-#         filtered_keywords.append(keyword)
-#
-# # Set the entry in the Keyword column to None so that they get filtered
-# for i in range(0, len(new_keywords)):
-#     if new_keywords[i] in filtered_keywords:
-#         new_keywords[i] = "None"
+
+# Remove any keywords that do not appear a min number of times in the dataset
+# Count the occurrence of each keyword
+keyword_dict = {}
+for keyword in new_keywords:
+    if keyword not in keyword_dict:
+        keyword_dict[keyword] = 1
+    else:
+        keyword_dict[keyword] += 1
+
+# Add any keywords with insufficient counts to a filter list
+filtered_keywords = []
+for keyword in keyword_dict:
+    if keyword_dict[keyword] < MIN_KEYWORD_FREQ:
+        filtered_keywords.append(keyword)
+
+# Set the entry in the Keyword column to None so that they get filtered
+for i in range(0, len(new_keywords)):
+    if new_keywords[i] in filtered_keywords:
+        new_keywords[i] = "None"
 
 # Put keywords back into dataset
 recipes_df['Keywords'] = new_keywords
@@ -191,7 +206,7 @@ recipes_df['Keywords'] = new_keywords
 #ok sorry I changed this cause I realized could actually use none and filter that out. (╥﹏╥)
 recipes_df = recipes_df[recipes_df['Keywords'] != "None"].reset_index(drop=True) #if keywords is not 'none' then true, reset rows back to 0
 
-count_category_frequency(recipes_df['Keywords'].tolist(), 500)#changed to pass on new column, so dont print 'none'
+#count_category_frequency(recipes_df['Keywords'].tolist(), 500)#changed to pass on new column, so dont print 'none'
 
 all_ings = recipes_df['RecipeIngredientParts'].tolist() #make it into a list for the for loops.
 
@@ -365,22 +380,22 @@ print("\n")
 # Recipe Classifier Using KNN Test #########
 from knn_test import test_knn_accuracy
 
-results = test_knn_accuracy(
-    transformed_X_train, transformed_X_test, y_train, y_test
-)
+# results = test_knn_accuracy(
+#      transformed_X_train, transformed_X_test, y_train, y_test
+# )
 
 
-# #Recipe Classifier ################
-# knn = KNeighborsClassifier(n_neighbors=7)
-# knn.fit(transformed_X_train, y_train)
-# y_pred = knn.predict(transformed_X_test) #predictions based on the test set
-# accuracy = accuracy_score(y_test, y_pred) #accuracy of comparing predictions to the actual labels
-# print(f"\nKNN accuracy: {accuracy:.2%}")
-# cm = confusion_matrix(y_test, y_pred) #confusion matrix for more insight
-# print("\nConfusion matrix:")
-# print(cm)
-# print("\nAll scores:") #classification report for more insight
-# print(classification_report(y_test, y_pred, target_names=["bad-recipe", "good-recipe"]))
+#Recipe Classifier ################
+knn = KNeighborsClassifier(n_neighbors=29, algorithm='brute', metric='manhattan', p=1, weights='distance')
+knn.fit(transformed_X_train, y_train)
+y_pred = knn.predict(transformed_X_test) #predictions based on the test set
+accuracy = accuracy_score(y_test, y_pred) #accuracy of comparing predictions to the actual labels
+print(f"\nKNN accuracy: {accuracy:.2%}")
+cm = confusion_matrix(y_test, y_pred) #confusion matrix for more insight
+print("\nConfusion matrix:")
+print(cm)
+print("\nAll scores:") #classification report for more insight
+print(classification_report(y_test, y_pred, target_names=["bad-recipe", "good-recipe"]))
 
 
 
@@ -405,14 +420,27 @@ cuisine_prep = ColumnTransformer(
 x_train_c = cuisine_prep.fit_transform(X_train);
 x_test_c = cuisine_prep.transform(X_test);
 
-#set up knn for cuisine k=7 same as before
-knn2 = KNeighborsClassifier(n_neighbors=7); #7 closest values
+print("Training set label counts:")
+print(y_train_cuisine.value_counts())
+print("\nTest set label counts:")
+print(y_test_cuisine.value_counts())
+
+# from knn_test import test_knn_accuracy
+
+# results2 = test_knn_accuracy(
+#      x_train_c, x_test_c, y_train_cuisine, y_test_cuisine
+# )
+
+knn2 = KNeighborsClassifier(n_neighbors=26, algorithm='brute', metric='manhattan', p=1, weights='distance') #7 closest values
 knn2.fit(x_train_c, y_train_cuisine); #plots on knn model but for cuisines. y_train_cuisine cusine labels
 
 #Euclidean distance of each, take 7 closest, return which ones appear the most.
 preds2 = knn2.predict(x_test_c); #check the nearest cuisine neighbours, picks the cuisine with the highest amount around it.
 acc2 = accuracy_score(y_test_cuisine, preds2);
 print("\ncuisine KNN accuracy:", round(acc2 * 100, 2), "%");
+
+print("\nAll scores:") #classification report for more insight
+print(classification_report(y_test_cuisine, preds2))
 
 #get probability for each cuisine
 probs = knn2.predict_proba(x_test_c); #how out of the k=7 did they guess x/7 = certain %
