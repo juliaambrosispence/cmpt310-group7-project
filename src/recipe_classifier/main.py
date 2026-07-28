@@ -467,7 +467,28 @@ for curr_recipe in range(0, limit):
             percentage = chance * 100; #turn into percent
             print(f"  {classes[i]}: {percentage:.1f}%");
 
+def clean_ingredient(item):
+    #lowercases and trim white spaces
+    item = str(item).lower().strip()
+    split_item = item.split(" ")
+    while len(split_item) > 0 and split_item[0] in prefix_remove:
+        split_item.pop(0)
+    item = " ".join(split_item)
+    #change to accepted term from base_ing
+    for main_ing in base_ing:
+        for alias in base_ing[main_ing]:
+            if alias in item and item != main_ing:
+                return main_ing
+    return item
 
+def clean_new_ingredients(raw_ingredients):
+    #remove duplicates
+    cleaned = [clean_ingredient(ing) for ing in list(dict.fromkeys(raw_ingredients)) if ing.strip() != ""]
+    #filter again so only ingredients the model is aware of from ing_counts
+    known = [ing for ing in cleaned if ing_counts.get(ing, 0) >= MIN_INGREDIENT_FREQ]
+    dropped = [ing for ing in cleaned if ing not in known]
+
+    return known
 
 # TODO: Take processed data and train a classifier, evaluate metrics, generate plots
 
