@@ -509,6 +509,66 @@ def build_recipe_row(cook_time, prep_time, keyword, ingredients, calories, fat, 
         "RecipeServings": servings,
     }])
 
+def predict_new_recipe():
+    def ask_float(prompt, default=0.0): #default is 0.0
+        raw = input(f"{prompt} [{default}]: ").strip()
+        if raw == "": #return default if null input
+            return default
+        try:
+            return float(raw)
+        except ValueError: #error handling
+            print("Error, using default.")
+            return default
+    print("\n" + "=" * 60)
+    print("Enter a new recipe to classify")
+    print("=" * 60)
+    #asking for raw fields the model needs
+    cook_time = ask_float("Cook time (minutes)")
+    prep_time = ask_float("Prep time (minutes)")
+    calories = ask_float("Calories")
+    fat = ask_float("Fat (g)")
+    sat_fat = ask_float("Saturated fat (g)")
+    cholesterol = ask_float("Cholesterol (mg)")
+    sodium = ask_float("Sodium (mg)")
+    carbs = ask_float("Carbohydrates (g)")
+    fiber = ask_float("Fiber (g)")
+    sugar = ask_float("Sugar (g)")
+    protein = ask_float("Protein (g)")
+    servings = ask_float("Servings", default=2.0) #default=2 since zero servings doens't make sense
+    #asking for cuisine identifier
+    keyword_raw = input("Cuisine identifier: ").strip()
+    keyword = keyword_raw if keyword_raw else "None"
+    #asking for ingredients
+    ingredients_raw = input("Ingredients, comma-separated: ").strip()
+    ingredients_list = [i.strip() for i in ingredients_raw.split(",") if i.strip()]
+    cleaned_ingredients = clean_new_ingredients(ingredients_list)
+    #calling function to put all into desired position
+    new_row = build_recipe_row(
+        cook_time, prep_time, keyword, cleaned_ingredients, calories, fat, sat_fat, cholesterol, sodium, carbs, fiber, sugar, protein, servings,
+    )
+
+    #quality prediction reusing the fitted preprocessor + knn
+    transformed_new = preprocessor.transform(new_row)
+    quality_pred = knn.predict(transformed_new)[0]
+    quality_proba = knn.predict_proba(transformed_new)[0]
+    good_idx = list(knn.classes_).index(1)
+    quality_label = "Good recipe" if quality_pred == 1 else "Bad recipe"
+
+    print("\n" + "-" * 60)
+    print(f"Quality prediction: {quality_label}")
+    print(f"  Confidence: {quality_proba[good_idx] * 100:.1f}% good / " f"{(1 - quality_proba[good_idx]) * 100:.1f}% bad")
+    #cuisine prediction reusing the fitted cuisine_prep + knn2
+    transformed_new_c = cuisine_prep.transform(new_row)
+    cuisine_probs = knn2.predict_proba(transformed_new_c)[0]
+    cuisine_classes = knn2.classes_
+
+    print("\nCuisine probability distribution:")
+    ranked = sorted(zip(cuisine_classes, cuisine_probs), key=lambda x: x[1], reverse=True)
+    for cuisine, prob in ranked: #unpacking each pair and printing only ones with nonzero probability
+        if prob > 0:
+            print(f"  {cuisine}: {prob*100:.1f}%")
+    print("-"*60 + "\n")
+
 # TODO: Take processed data and train a classifier, evaluate metrics, generate plots
 
 # feature_names = preprocessor.get_feature_names_out()
