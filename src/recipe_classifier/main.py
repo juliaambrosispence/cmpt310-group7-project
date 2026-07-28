@@ -490,6 +490,25 @@ def clean_new_ingredients(raw_ingredients):
 
     return known
 
+#pack the individual raw values into single Dataframe
+def build_recipe_row(cook_time, prep_time, keyword, ingredients, calories, fat, sat_fat, cholesterol, sodium, carbs, fiber, sugar, protein, servings):
+    return pd.DataFrame([{
+        "CookTime": cook_time,
+        "PrepTime": prep_time,
+        "Keywords": keyword,
+        "RecipeIngredientParts": ingredients,
+        "Calories": calories,
+        "FatContent": fat,
+        "SaturatedFatContent": sat_fat,
+        "CholesterolContent": cholesterol,
+        "SodiumContent": sodium,
+        "CarbohydrateContent": carbs,
+        "FiberContent": fiber,
+        "SugarContent": sugar,
+        "ProteinContent": protein,
+        "RecipeServings": servings,
+    }])
+
 # TODO: Take processed data and train a classifier, evaluate metrics, generate plots
 
 # feature_names = preprocessor.get_feature_names_out()
