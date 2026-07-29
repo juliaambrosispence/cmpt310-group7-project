@@ -63,15 +63,22 @@ def parse_url(url):
 
     # Convert times
     match = re.match(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$", data_raw["cookTime"])
-    hours = match.group(1) or 0
-    minutes = match.group(2) or 0
-    seconds = match.group(3) or 0
-    data["cook_time"] = int(hours)*60 + int(minutes) + int(seconds)/60
-    match = re.match(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$", data_raw["prepTime"])
-    hours = match.group(1) or 0
-    minutes = match.group(2) or 0
-    seconds = match.group(3) or 0
-    data["prep_time"] = int(hours)*60 + int(minutes) + int(seconds)/60
+    if match:
+        hours = match.group(1) or 0
+        minutes = match.group(2) or 0
+        seconds = match.group(3) or 0
+        data["cook_time"] = int(hours)*60 + int(minutes) + int(seconds)/60
+    else:
+        data["cook_time"] = 0
+
+        match = re.match(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$", data_raw["prepTime"])
+    if match:
+        hours = match.group(1) or 0
+        minutes = match.group(2) or 0
+        seconds = match.group(3) or 0
+        data["prep_time"] = int(hours)*60 + int(minutes) + int(seconds)/60
+    else:
+        data["prep_time"] = 0
 
     # Try and find keyword, otherwise None
     data["keyword"] = "None"
