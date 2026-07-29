@@ -17,6 +17,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from pathlib import Path
+from webscraper import parse_url
 from utils import *
 
 N_ROWS = 15000
@@ -509,43 +510,49 @@ def build_recipe_row(cook_time, prep_time, keyword, ingredients, calories, fat, 
         "RecipeServings": servings,
     }])
 
-def predict_new_recipe():
-    def ask_float(prompt, default=0.0): #default is 0.0
-        raw = input(f"{prompt} [{default}]: ").strip()
-        if raw == "": #return default if null input
-            return default
-        try:
-            return float(raw)
-        except ValueError: #error handling
-            print("Error, using default.")
-            return default
-    print("\n")
-    print("Enter a new recipe to classify:")
-    print("-"*40)
-    #asking for raw fields the model needs
-    cook_time = ask_float("Cook time (minutes)")
-    prep_time = ask_float("Prep time (minutes)")
-    calories = ask_float("Calories")
-    fat = ask_float("Fat (g)")
-    sat_fat = ask_float("Saturated fat (g)")
-    cholesterol = ask_float("Cholesterol (mg)")
-    sodium = ask_float("Sodium (mg)")
-    carbs = ask_float("Carbohydrates (g)")
-    fiber = ask_float("Fiber (g)")
-    sugar = ask_float("Sugar (g)")
-    protein = ask_float("Protein (g)")
-    servings = ask_float("Servings", default=2.0) #default=2 since zero servings doens't make sense
-    #asking for cuisine identifier
-    keyword_raw = input("Cuisine identifier: ").strip()
-    keyword = keyword_raw if keyword_raw else "None"
-    #asking for ingredients
-    ingredients_raw = input("Ingredients, comma-separated: ").strip()
-    ingredients_list = [i.strip() for i in ingredients_raw.split(",") if i.strip()]
-    cleaned_ingredients = clean_new_ingredients(ingredients_list)
-    #calling function to put all into desired position
-    new_row = build_recipe_row(
-        cook_time, prep_time, keyword, cleaned_ingredients, calories, fat, sat_fat, cholesterol, sodium, carbs, fiber, sugar, protein, servings,
-    )
+def predict_new_recipe(data=None):
+    # If data supplied from URL scraper, then skip asking
+    if data:
+        data["ingredients"] = clean_new_ingredients(data["ingredients"])
+        #print(data)
+        new_row = build_recipe_row(**data)
+    else:
+        def ask_float(prompt, default=0.0): #default is 0.0
+            raw = input(f"{prompt} [{default}]: ").strip()
+            if raw == "": #return default if null input
+                return default
+            try:
+                return float(raw)
+            except ValueError: #error handling
+                print("Error, using default.")
+                return default
+        print("\n")
+        print("Enter a new recipe to classify:")
+        print("-"*40)
+        #asking for raw fields the model needs
+        cook_time = ask_float("Cook time (minutes)")
+        prep_time = ask_float("Prep time (minutes)")
+        calories = ask_float("Calories")
+        fat = ask_float("Fat (g)")
+        sat_fat = ask_float("Saturated fat (g)")
+        cholesterol = ask_float("Cholesterol (mg)")
+        sodium = ask_float("Sodium (mg)")
+        carbs = ask_float("Carbohydrates (g)")
+        fiber = ask_float("Fiber (g)")
+        sugar = ask_float("Sugar (g)")
+        protein = ask_float("Protein (g)")
+        servings = ask_float("Servings", default=2.0) #default=2 since zero servings doens't make sense
+        #asking for cuisine identifier
+        keyword_raw = input("Cuisine identifier: ").strip()
+        keyword = keyword_raw if keyword_raw else "None"
+        #asking for ingredients
+        ingredients_raw = input("Ingredients, comma-separated: ").strip()
+        ingredients_list = [i.strip() for i in ingredients_raw.split(",") if i.strip()]
+        cleaned_ingredients = clean_new_ingredients(ingredients_list)
+        #calling function to put all into desired position
+        new_row = build_recipe_row(
+            cook_time, prep_time, keyword, cleaned_ingredients, calories, fat, sat_fat, cholesterol, sodium, carbs, fiber, sugar, protein, servings,
+        )
 
     #quality prediction reusing the fitted preprocessor + knn
     transformed_new = preprocessor.transform(new_row) #runs the row through ColumnTransformer
@@ -571,7 +578,11 @@ def predict_new_recipe():
 
 if __name__ == "__main__":
     while True:
-        predict_new_recipe()
+        url = input("Enter the URL of a recipe from food.com or press enter for manual entry: ").strip()
+        if url:
+            predict_new_recipe(parse_url(url))
+        else:
+            predict_new_recipe()
         again = input("Classify another recipe? (y/n): ").strip().lower()
         if again != "y":
             break
