@@ -548,10 +548,10 @@ def predict_new_recipe():
     )
 
     #quality prediction reusing the fitted preprocessor + knn
-    transformed_new = preprocessor.transform(new_row)
-    quality_pred = knn.predict(transformed_new)[0]
-    quality_proba = knn.predict_proba(transformed_new)[0]
-    good_idx = list(knn.classes_).index(1)
+    transformed_new = preprocessor.transform(new_row) #runs the row through ColumnTransformer
+    quality_pred = knn.predict(transformed_new)[0] #gives a single prediction, 0 or 1
+    quality_proba = knn.predict_proba(transformed_new)[0] #returns an array of probabilities per class per row
+    good_idx = list(knn.classes_).index(1) #find where value 1 sits in the array
     quality_label = "Good recipe" if quality_pred == 1 else "Bad recipe"
 
     print("\n" + "-" * 60)
@@ -568,6 +568,13 @@ def predict_new_recipe():
         if prob > 0:
             print(f"  {cuisine}: {prob*100:.1f}%")
     print("-"*60 + "\n")
+
+if __name__ == "__main__":
+    while True:
+        predict_new_recipe()
+        again = input("Classify another recipe? (y/n): ").strip().lower()
+        if again != "y":
+            break
 
 # TODO: Take processed data and train a classifier, evaluate metrics, generate plots
 
