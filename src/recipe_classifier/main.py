@@ -553,7 +553,19 @@ def predict_new_recipe(data=None):
         new_row = build_recipe_row(
             cook_time, prep_time, keyword, cleaned_ingredients, calories, fat, sat_fat, cholesterol, sodium, carbs, fiber, sugar, protein, servings,
         )
-
+    print(f"\nIngredients used by model: {new_row['RecipeIngredientParts'].iloc[0]}")
+    print(f"  Calories: {new_row['Calories'].iloc[0]}")
+    print(f"  Fat: {new_row['FatContent'].iloc[0]}g")
+    print(f"  Saturated Fat: {new_row['SaturatedFatContent'].iloc[0]}g")
+    print(f"  Cholesterol: {new_row['CholesterolContent'].iloc[0]}mg")
+    print(f"  Sodium: {new_row['SodiumContent'].iloc[0]}mg")
+    print(f"  Carbohydrates: {new_row['CarbohydrateContent'].iloc[0]}g")
+    print(f"  Fiber: {new_row['FiberContent'].iloc[0]}g")
+    print(f"  Sugar: {new_row['SugarContent'].iloc[0]}g")
+    print(f"  Protein: {new_row['ProteinContent'].iloc[0]}g")
+    print(f"  Servings: {new_row['RecipeServings'].iloc[0]}")
+    print(f"  Cook Time: {new_row['CookTime'].iloc[0]} min")
+    print(f"  Prep Time: {new_row['PrepTime'].iloc[0]} min")
     #quality prediction reusing the fitted preprocessor + knn
     transformed_new = preprocessor.transform(new_row) #runs the row through ColumnTransformer
     quality_pred = knn.predict(transformed_new)[0] #gives a single prediction, 0 or 1
