@@ -519,9 +519,9 @@ def predict_new_recipe():
         except ValueError: #error handling
             print("Error, using default.")
             return default
-    print("\n" + "=" * 60)
-    print("Enter a new recipe to classify")
-    print("=" * 60)
+    print("\n")
+    print("Enter a new recipe to classify:")
+    print("-"*40)
     #asking for raw fields the model needs
     cook_time = ask_float("Cook time (minutes)")
     prep_time = ask_float("Prep time (minutes)")
@@ -554,7 +554,7 @@ def predict_new_recipe():
     good_idx = list(knn.classes_).index(1) #find where value 1 sits in the array
     quality_label = "Good recipe" if quality_pred == 1 else "Bad recipe"
 
-    print("\n" + "-" * 60)
+    print("\n" + "-"*40)
     print(f"Quality prediction: {quality_label}")
     print(f"  Confidence: {quality_proba[good_idx] * 100:.1f}% good / " f"{(1 - quality_proba[good_idx]) * 100:.1f}% bad")
     #cuisine prediction reusing the fitted cuisine_prep + knn2
@@ -567,7 +567,7 @@ def predict_new_recipe():
     for cuisine, prob in ranked: #unpacking each pair and printing only ones with nonzero probability
         if prob > 0:
             print(f"  {cuisine}: {prob*100:.1f}%")
-    print("-"*60 + "\n")
+    print("-"*40 + "\n")
 
 if __name__ == "__main__":
     while True:
