@@ -17,6 +17,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from pathlib import Path
+from webscraper import parse_url
 from utils import *
 
 N_ROWS = 15000
@@ -470,8 +471,136 @@ for curr_recipe in range(0, limit):
             percentage = chance * 100; #turn into percent
             print(f"  {classes[i]}: {percentage:.1f}%");
 
+def clean_ingredient(item):
+    #lowercases and trim white spaces
+    item = str(item).lower().strip()
+    split_item = item.split(" ")
+    while len(split_item) > 0 and split_item[0] in prefix_remove:
+        split_item.pop(0)
+    item = " ".join(split_item)
+    #change to accepted term from base_ing
+    for main_ing in base_ing:
+        for alias in base_ing[main_ing]:
+            if alias in item and item != main_ing:
+                return main_ing
+    return item
 
+def clean_new_ingredients(raw_ingredients):
+    #remove duplicates
+    cleaned = [clean_ingredient(ing) for ing in list(dict.fromkeys(raw_ingredients)) if ing.strip() != ""]
+    #filter again so only ingredients the model is aware of from ing_counts
+    known = [ing for ing in cleaned if ing_counts.get(ing, 0) >= MIN_INGREDIENT_FREQ]
+    dropped = [ing for ing in cleaned if ing not in known]
 
+    return known
+
+#pack the individual raw values into single Dataframe
+def build_recipe_row(cook_time, prep_time, keyword, ingredients, calories, fat, sat_fat, cholesterol, sodium, carbs, fiber, sugar, protein, servings):
+    return pd.DataFrame([{
+        "CookTime": cook_time,
+        "PrepTime": prep_time,
+        "Keywords": keyword,
+        "RecipeIngredientParts": ingredients,
+        "Calories": calories,
+        "FatContent": fat,
+        "SaturatedFatContent": sat_fat,
+        "CholesterolContent": cholesterol,
+        "SodiumContent": sodium,
+        "CarbohydrateContent": carbs,
+        "FiberContent": fiber,
+        "SugarContent": sugar,
+        "ProteinContent": protein,
+        "RecipeServings": servings,
+    }])
+
+def predict_new_recipe(data=None):
+    # If data supplied from URL scraper, then skip asking
+    if data:
+        data["ingredients"] = clean_new_ingredients(data["ingredients"])
+        #print(data)
+        new_row = build_recipe_row(**data)
+    else:
+        def ask_float(prompt, default=0.0): #default is 0.0
+            raw = input(f"{prompt} [{default}]: ").strip()
+            if raw == "": #return default if null input
+                return default
+            try:
+                return float(raw)
+            except ValueError: #error handling
+                print("Error, using default.")
+                return default
+        print("\n")
+        print("Enter a new recipe to classify:")
+        print("-"*40)
+        #asking for raw fields the model needs
+        cook_time = ask_float("Cook time (minutes)")
+        prep_time = ask_float("Prep time (minutes)")
+        calories = ask_float("Calories")
+        fat = ask_float("Fat (g)")
+        sat_fat = ask_float("Saturated fat (g)")
+        cholesterol = ask_float("Cholesterol (mg)")
+        sodium = ask_float("Sodium (mg)")
+        carbs = ask_float("Carbohydrates (g)")
+        fiber = ask_float("Fiber (g)")
+        sugar = ask_float("Sugar (g)")
+        protein = ask_float("Protein (g)")
+        servings = ask_float("Servings", default=2.0) #default=2 since zero servings doens't make sense
+        #asking for cuisine identifier
+        keyword_raw = input("Cuisine identifier: ").strip()
+        keyword = keyword_raw if keyword_raw else "None"
+        #asking for ingredients
+        ingredients_raw = input("Ingredients, comma-separated: ").strip()
+        ingredients_list = [i.strip() for i in ingredients_raw.split(",") if i.strip()]
+        cleaned_ingredients = clean_new_ingredients(ingredients_list)
+        #calling function to put all into desired position
+        new_row = build_recipe_row(
+            cook_time, prep_time, keyword, cleaned_ingredients, calories, fat, sat_fat, cholesterol, sodium, carbs, fiber, sugar, protein, servings,
+        )
+    print(f"\nIngredients used by model: {new_row['RecipeIngredientParts'].iloc[0]}")
+    print(f"  Calories: {new_row['Calories'].iloc[0]}")
+    print(f"  Fat: {new_row['FatContent'].iloc[0]}g")
+    print(f"  Saturated Fat: {new_row['SaturatedFatContent'].iloc[0]}g")
+    print(f"  Cholesterol: {new_row['CholesterolContent'].iloc[0]}mg")
+    print(f"  Sodium: {new_row['SodiumContent'].iloc[0]}mg")
+    print(f"  Carbohydrates: {new_row['CarbohydrateContent'].iloc[0]}g")
+    print(f"  Fiber: {new_row['FiberContent'].iloc[0]}g")
+    print(f"  Sugar: {new_row['SugarContent'].iloc[0]}g")
+    print(f"  Protein: {new_row['ProteinContent'].iloc[0]}g")
+    print(f"  Servings: {new_row['RecipeServings'].iloc[0]}")
+    print(f"  Cook Time: {new_row['CookTime'].iloc[0]} min")
+    print(f"  Prep Time: {new_row['PrepTime'].iloc[0]} min")
+    #quality prediction reusing the fitted preprocessor + dt
+    transformed_new = preprocessor.transform(new_row) #runs the row through ColumnTransformer
+    quality_pred = dt.predict(transformed_new)[0] #gives a single prediction, 0 or 1
+    quality_proba = dt.predict_proba(transformed_new)[0] #returns an array of probabilities per class per row
+    good_idx = list(dt.classes_).index(1) #find where value 1 sits in the array
+    quality_label = "Good recipe" if quality_pred == 1 else "Bad recipe"
+
+    print("\n" + "-"*40)
+    print(f"Quality prediction: {quality_label}")
+    print(f"  Confidence: {quality_proba[good_idx] * 100:.1f}% good / " f"{(1 - quality_proba[good_idx]) * 100:.1f}% bad")
+    #cuisine prediction reusing the fitted cuisine_prep + knn2
+    transformed_new_c = cuisine_prep.transform(new_row)
+    cuisine_probs = knn2.predict_proba(transformed_new_c)[0]
+    cuisine_classes = knn2.classes_
+
+    print("\nCuisine probability distribution:")
+    ranked = sorted(zip(cuisine_classes, cuisine_probs), key=lambda x: x[1], reverse=True)
+    for cuisine, prob in ranked: #unpacking each pair and printing only ones with nonzero probability
+        if prob > 0:
+            print(f"  {cuisine}: {prob*100:.1f}%")
+    print("-"*40 + "\n")
+
+if __name__ == "__main__":
+    while True:
+        url = input("Enter the URL of a recipe from food.com or press enter for manual entry: ").strip()
+        if url:
+            predict_new_recipe(parse_url(url))
+        else:
+            predict_new_recipe()
+        again = input("Classify another recipe? (y/n): ").strip().lower()
+        if again != "y":
+            break
 
 # TODO: Take processed data and train a classifier, evaluate metrics, generate plots
 
