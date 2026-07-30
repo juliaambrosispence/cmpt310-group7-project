@@ -97,7 +97,16 @@ def parse_url(url):
     data["fiber"] = data_raw["nutrition"]["fiberContent"]
     data["sugar"] = data_raw["nutrition"]["sugarContent"]
     data["protein"] = data_raw["nutrition"]["proteinContent"]
-    data["servings"] = re.sub(r'\D', '', data_raw["recipeYield"])
+
+    raw_servings = data_raw["recipeYield"];
+    match = re.search(r'(\d+)\s*-\s*(\d+)', raw_servings);#look for ranges first
+    if match:
+        min = int(match.group(1));
+        max = int(match.group(2));
+        data["servings"] = (min + max) // 2;  #just average the range for full integer 
+    else:
+        digits_only = re.sub(r'\D', '', raw_servings);
+        data["servings"] = int(digits_only) if digits_only else 2;  #default
     #print(data)
 
     return data
