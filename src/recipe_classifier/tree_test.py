@@ -42,7 +42,7 @@ def find_depth(X_train, y_train, depth_range=range(1, 31), cv=5):
     for depth in depth_range:
         # class_weight='balanced' for the good recipe bias
         dt = DecisionTreeClassifier(max_depth=depth, class_weight='balanced', random_state=67)
-        scores = cross_val_score(dt, X_train, y_train, cv=cv, scoring="accuracy")
+        scores = cross_val_score(dt, X_train, y_train, cv=cv, scoring="balanced_accuracy")
         mean_scores.append(scores.mean())
 
     depth_list = list(depth_range)
@@ -70,7 +70,7 @@ def plot_depth_sweep(depth_values, mean_scores, best_depth, out_path="depth_swee
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(out_path, dpi=150)
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"Saved depth sweep plot to: {out_path}")
 
@@ -79,8 +79,9 @@ def plot_confusion_matrix(cm, labels, out_path="dt_confusion_matrix.png"):
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
     disp.plot(cmap="Blues", values_format="d")
     plt.title("Decision Tree Confusion Matrix (Test Set)")
-    plt.tight_layout()
-    plt.savefig(out_path, dpi=150)
+    plt.tight_layout(h_pad=3.0)
+    plt.xticks(rotation=45, ha="right", fontsize=8)
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"Saved confusion matrix plot to: {out_path}")
 
@@ -94,6 +95,7 @@ def test_tree_accuracy(
     max_depth_test=30,
     cv=5,
     make_plots=True,
+    model_name="recipe",
 ):
     """
     Runs a full accuracy check for Decision Tree on data that's preprocessed 
@@ -108,6 +110,8 @@ def test_tree_accuracy(
     print(f"Testing set:  {X_test.shape[0]} recipes\n")
 
     print("=" * 60)
+    print(f"Model: {model_name}")
+    print("=" * 60)
     print("STEP 1: Choosing max_depth")
     print("=" * 60)
     if depth is not None:
@@ -120,7 +124,7 @@ def test_tree_accuracy(
         print(f"Best depth found via cross-validation on TRAINING data: depth = {best_depth}")
         print(f"(Best mean CV accuracy: {max(mean_scores):.4f})\n")
         if make_plots:
-            plot_depth_sweep(depth_values, mean_scores, best_depth)
+            plot_depth_sweep(depth_values, mean_scores, best_depth, out_path=f"depth_sweep_{model_name}.png")
 
     print("=" * 60)
     print("STEP 2: Training final Decision Tree model on training data")
@@ -150,7 +154,7 @@ def test_tree_accuracy(
 
     if make_plots:
         labels = sorted(y_train.unique()) if hasattr(y_train, "unique") else sorted(set(y_train))
-        plot_confusion_matrix(cm, labels)
+        plot_confusion_matrix(cm, labels, out_path=f"dt_confusion_matrix_{model_name}.png")
 
     print("\nDone. The model never saw y_test during training, so this accuracy")
     print("reflects how well it generalizes to unseen recipes.")

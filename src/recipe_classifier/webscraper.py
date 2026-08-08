@@ -33,17 +33,27 @@ def parse_url(url):
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page()
-        page.goto(url)
+        try:
+            page.goto(url)
+        except:
+            print(f"Failed to open {url}, please provide a valid Food.com URL")
+            browser.close()
+            return None
 
-        # Print title of page to scrape data
-        print(f"Extracting recipe from page {page.title()}")
+        try:
+            # Print title of page to scrape data
+            print(f"Extracting recipe from page {page.title()}")
 
-        # Run Javascript commands on metadata manager to get ingredient info
-        data["ingredients"] = page.evaluate("""() => window.mdManager.getParameter("ingredients", ", ")""")
-        ingredients_list = [i.strip() for i in data["ingredients"].split(",") if i.strip()]
-        data["ingredients"] = ingredients_list
+            # Run Javascript commands on metadata manager to get ingredient info
+            data["ingredients"] = page.evaluate("""() => window.mdManager.getParameter("ingredients", ", ")""")
+            ingredients_list = [i.strip() for i in data["ingredients"].split(",") if i.strip()]
+            data["ingredients"] = ingredients_list
 
-        browser.close()
+            browser.close()
+        except:
+            print(f"Failed to read ingredient from {url}, please provide a valid Food.com URL")
+            browser.close()
+            return None
 
     # Parse HTML to find JSON data in page
 

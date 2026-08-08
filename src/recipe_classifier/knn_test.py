@@ -20,7 +20,7 @@ from sklearn.metrics import (
 )
 
 
-def safe_cv(y_train, requested_cv=5):
+def safe_cv(y_train, requested_cv=10):
     """
     Cross-validation needs at least `cv` examples of EVERY class in the
     training set, or sklearn throws a ValueError. This clamps cv down to
@@ -35,12 +35,12 @@ def safe_cv(y_train, requested_cv=5):
     return safe
 
 
-def find_k(X_train, y_train, k_range=range(1, 31), cv=5):
+def find_k(X_train, y_train, k_range=range(1, 101), cv=10):
     # Return whichever k had the best average accuracy.
     cv = safe_cv(y_train, cv)
     mean_scores = []
     for k in k_range:
-        knn = KNeighborsClassifier(n_neighbors=k)
+        knn = KNeighborsClassifier(n_neighbors=k, weights='distance')
         scores = cross_val_score(knn, X_train, y_train, cv=cv, scoring="accuracy")
         mean_scores.append(scores.mean())
 
@@ -49,7 +49,7 @@ def find_k(X_train, y_train, k_range=range(1, 31), cv=5):
     return best_k, k_list, mean_scores
 
 
-def plot_k_sweep(k_values, mean_scores, best_k, out_path="k_sweep.png"):
+def plot_k_sweep(k_values, mean_scores, best_k, out_path="k_sweep_knn.png"):
     """
     KNN elbow plot: error rate vs. k, cross-validated on the training set only. 
     Best K point is marked with a star.
@@ -69,17 +69,19 @@ def plot_k_sweep(k_values, mean_scores, best_k, out_path="k_sweep.png"):
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(out_path, dpi=150)
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"Saved k-sweep elbow plot to: {out_path}")
 
 
-def plot_confusion_matrix(cm, labels, out_path="confusion_matrix.png"):
+def plot_confusion_matrix(cm, labels, out_path="confusion_matrix_knn.png"):
+    plt.figure(figsize=(12, 10))
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
     disp.plot(cmap="Blues", values_format="d")
     plt.title("KNN Confusion Matrix (Test Set)")
-    plt.tight_layout()
-    plt.savefig(out_path, dpi=150)
+    plt.tight_layout(h_pad=3.0)
+    plt.xticks(rotation=45, ha="right", fontsize=8)
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"Saved confusion matrix plot to: {out_path}")
 
@@ -90,9 +92,10 @@ def test_knn_accuracy(
     y_train,
     y_test,
     k=None,
-    max_k=30,
-    cv=5,
+    max_k=101,
+    cv=10,
     make_plots=True,
+    model_name="recipe",
 ):
     """
     Runs a full accuracy check for KNN on data that's preprocessed 
@@ -107,6 +110,8 @@ def test_knn_accuracy(
     print(f"Testing set:  {X_test.shape[0]} recipes\n")
 
     print("=" * 60)
+    print(f"Model: {model_name}")
+    print("=" * 60)
     print("STEP 1: Choosing k")
     print("=" * 60)
     if k is not None:
@@ -119,12 +124,12 @@ def test_knn_accuracy(
         print(f"Best k found via cross-validation on TRAINING data: k = {best_k}")
         print(f"(Best mean CV accuracy: {max(mean_scores):.4f})\n")
         if make_plots:
-            plot_k_sweep(k_values, mean_scores, best_k)
+            plot_k_sweep(k_values, mean_scores, best_k, out_path=f"k_sweep_knn_{model_name}.png")
 
     print("=" * 60)
     print("STEP 2: Training final KNN model on training data")
     print("=" * 60)
-    model = KNeighborsClassifier(n_neighbors=best_k)
+    model = KNeighborsClassifier(n_neighbors=best_k, weights='distance')
     model.fit(X_train, y_train)
     print(f"KNN model trained with k = {best_k}.\n")
 
@@ -149,7 +154,7 @@ def test_knn_accuracy(
 
     if make_plots:
         labels = sorted(y_train.unique()) if hasattr(y_train, "unique") else sorted(set(y_train))
-        plot_confusion_matrix(cm, labels)
+        plot_confusion_matrix(cm, labels, out_path=f"confusion_matrix_{model_name}.png")
 
     print("\nDone. The model never saw y_test during training, so this accuracy")
     print("reflects how well it generalizes to unseen recipes.")
