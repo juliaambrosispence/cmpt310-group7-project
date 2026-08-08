@@ -16,7 +16,7 @@ from sklearn.metrics import (
     f1_score,
     confusion_matrix,
     classification_report,
-    ConfusionMatrixDisplay,
+    ConfusionMatrixDisplay, balanced_accuracy_score,
 )
 
 
@@ -144,16 +144,18 @@ def test_knn_accuracy(
     y_pred = model.predict(X_test)
 
     acc = accuracy_score(y_test, y_pred)
+    balanced_acc = balanced_accuracy_score(y_test, y_pred)
     prec = precision_score(y_test, y_pred, average="weighted", zero_division=0)
     rec = recall_score(y_test, y_pred, average="weighted", zero_division=0)
     f1 = f1_score(y_test, y_pred, average="weighted", zero_division=0)
     cm = confusion_matrix(y_test, y_pred)
     report = classification_report(y_test, y_pred, zero_division=0)
 
-    print(f"Accuracy:  {acc:.4f}")
-    print(f"Precision: {prec:.4f}")
-    print(f"Recall:    {rec:.4f}")
-    print(f"F1 Score:  {f1:.4f}\n")
+    print(f"Accuracy:       {acc:.4f}")
+    print(f"Bal. Accuracy:  {balanced_acc:.4f}")
+    print(f"Precision:      {prec:.4f}")
+    print(f"Recall:         {rec:.4f}")
+    print(f"F1 Score:       {f1:.4f}\n")
     print("Classification Report:")
     print(report)
 

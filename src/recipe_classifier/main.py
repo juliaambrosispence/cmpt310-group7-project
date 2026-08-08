@@ -24,6 +24,7 @@ from utils import *
 from enum import Enum
 from knn_test import test_knn_accuracy
 from tree_test import test_tree_accuracy
+from rforest_test import test_rforest_accuracy
 from hyperparams import *
 
 USER_MODEL = None
@@ -100,7 +101,7 @@ print(f"Dataset located at {dataset_dir}")
 
 # Perform preprocessing on the dataset based on hyperparameters
 def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_freq,
-                    cv_count, max_k, max_depth, balance_training_recipe, balance_training_cuisine,
+                    cv_count, max_sweep, balance_training_recipe, balance_training_cuisine,
                     param1, param2):
     # Parquet files need a different approach to only read a certain number of entries
     parquet_recipes = pd.read_parquet(dataset_dir / "recipes.parquet")#pq.ParquetFile(dataset_dir / "recipes.parquet")
@@ -468,8 +469,6 @@ def train_models(transformed_X_train, transformed_X_test, y_train, y_test, x_tra
     # Variables for the trained model's results
     recipe_results = None
     cuisine_results = None
-    max_k = hyperparameters["max_k"]
-    max_depth = hyperparameters["max_depth"]
     cv_count = hyperparameters["cv_count"]
     balance_training_recipe = hyperparameters["balance_training_recipe"]
     balance_training_cuisine = hyperparameters["balance_training_cuisine"]
@@ -479,20 +478,30 @@ def train_models(transformed_X_train, transformed_X_test, y_train, y_test, x_tra
     if USER_MODEL == Models.KNN:
         recipe_results = test_knn_accuracy(
              transformed_X_train, transformed_X_test, y_train, y_test,
-            max_k=max_k, cv=cv_count, data_balanced=balance_training_recipe, k=param1
+            max_k=hyperparameters["max_sweep"], cv=cv_count, data_balanced=balance_training_recipe, k=param1
         )
         cuisine_results = test_knn_accuracy(
              x_train_c, x_test_c, y_train_cuisine, y_test_cuisine,
-            max_k=max_k, cv=cv_count, model_name="cuisine", data_balanced=balance_training_cuisine, k=param2
+            max_k=hyperparameters["max_sweep"], cv=cv_count, model_name="cuisine", data_balanced=balance_training_cuisine, k=param2
         )
     elif USER_MODEL == Models.DTREE:
         recipe_results = test_tree_accuracy(
              transformed_X_train, transformed_X_test, y_train, y_test,
-            max_depth_test=max_depth, cv=cv_count, data_balanced=balance_training_recipe, depth=param1
+            max_depth_test=hyperparameters["max_sweep"], cv=cv_count, data_balanced=balance_training_recipe, depth=param1
         )
         cuisine_results = test_tree_accuracy(
              x_train_c, x_test_c, y_train_cuisine, y_test_cuisine,
-            max_depth_test=max_depth, cv=cv_count, model_name="cuisine", data_balanced=balance_training_cuisine, depth=param2
+            max_depth_test=hyperparameters["max_sweep"], cv=cv_count, model_name="cuisine", data_balanced=balance_training_cuisine, depth=param2
+        )
+    elif USER_MODEL == Models.RFOREST:
+        recipe_results = test_rforest_accuracy(
+            transformed_X_train, transformed_X_test, y_train, y_test,
+            max_estimator_test=hyperparameters["max_sweep"], cv=cv_count, data_balanced=balance_training_recipe, estimator=param1
+        )
+        cuisine_results = test_rforest_accuracy(
+            x_train_c, x_test_c, y_train_cuisine, y_test_cuisine,
+            max_estimator_test=hyperparameters["max_sweep"], cv=cv_count, model_name="cuisine", data_balanced=balance_training_cuisine,
+            estimator=param2
         )
 
     return recipe_results, cuisine_results
@@ -626,10 +635,13 @@ def change_param(param1, param2):
     if USER_MODEL == Models.DTREE:
         hyperparams[1]["param1"] = param1
         hyperparams[1]["param2"] = param2
+    if USER_MODEL == Models.RFOREST:
+        hyperparams[2]["param1"] = param1
+        hyperparams[2]["param2"] = param2
 
 def choose_model():
     param1, param2 = None, None
-    choice = input(f"Choose a model (1 - KNN | 2 - DTREE)\n"
+    choice = input(f"Choose a model (1 - KNN | 2 - DTREE | 3 - RFOREST)\n"
                    f"(Optionally, manually enter model parameters seperated by comma)\n"
                    f"(e.g. '1, 4, 5' results in KNN with K=4 for recipe, K=5 for cuisine): ").strip()
     input_list = choice.split(",")

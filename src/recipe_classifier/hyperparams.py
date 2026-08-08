@@ -10,8 +10,7 @@ hyperparams = [
         "min_ingredient_freq" : 50,
         "min_keyword_freq" : 60,
         "cv_count" : 10,
-        "max_k" : 67,
-        "max_depth" : 25,
+        "max_sweep" : 67,
         "balance_training_recipe" : True,
         "balance_training_cuisine" : False,
         "param1" : None,
@@ -24,11 +23,23 @@ hyperparams = [
         "min_ingredient_freq": 50,
         "min_keyword_freq": 60,
         "cv_count": 10,
-        "max_k": 67,
-        "max_depth": 25,
+        "max_sweep": 25,
         "balance_training_recipe": False,
         "balance_training_cuisine": False,
         "param1" : None,
         "param2" : None
+    },
+    # Random Forest Hyperparameters
+    {
+        "n_rows": 25000,
+        "rating_threshold": 5,
+        "min_ingredient_freq": 20,
+        "min_keyword_freq": 60,
+        "cv_count": 10,
+        "max_sweep": 1000,
+        "balance_training_recipe": False,
+        "balance_training_cuisine": False,
+        "param1": None,
+        "param2": None
     }
 ]
