@@ -12,7 +12,10 @@ hyperparams = [
         "cv_count" : 10,
         "max_k" : 67,
         "max_depth" : 25,
-        "balance_training" : True,
+        "balance_training_recipe" : True,
+        "balance_training_cuisine" : False,
+        "param1" : None,
+        "param2" : None
     },
     # Decision Tree Hyperparameters
     {
@@ -23,6 +26,9 @@ hyperparams = [
         "cv_count": 10,
         "max_k": 67,
         "max_depth": 25,
-        "balance_training": False,
+        "balance_training_recipe": False,
+        "balance_training_cuisine": False,
+        "param1" : None,
+        "param2" : None
     }
 ]

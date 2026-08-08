@@ -17,6 +17,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 from webscraper import parse_url
 from utils import *
@@ -99,14 +100,27 @@ print(f"Dataset located at {dataset_dir}")
 
 # Perform preprocessing on the dataset based on hyperparameters
 def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_freq,
-                    cv_count, max_k, max_depth, balance_training):
+                    cv_count, max_k, max_depth, balance_training_recipe, balance_training_cuisine,
+                    param1, param2):
     # Parquet files need a different approach to only read a certain number of entries
     parquet_recipes = pd.read_parquet(dataset_dir / "recipes.parquet")#pq.ParquetFile(dataset_dir / "recipes.parquet")
     #filtering out recipes that don't have a rating
     parquet_recipes = parquet_recipes.dropna(subset=['AggregatedRating']).reset_index(drop=True)
+    # filter out recipes with less than min review count
+    #print(len(parquet_recipes))
+    #parquet_recipes = parquet_recipes[parquet_recipes['ReviewCount'] >= 10].reset_index(drop=True)
+    #print(len(parquet_recipes))
+
     #recipes_df = next(parquet_recipes.iter_batches(batch_size=n_rows)).to_pandas()
     recipes_df = parquet_recipes.sample(n=n_rows, random_state=67) #randomly picking n_rows amount from dataset
 
+    #recipes_df['ReviewCount'].value_counts().sort_index().plot(kind='hist')
+    # plt.hist(recipes_df['ReviewCount'].value_counts().sort_index(), bins=5000)
+    # plt.xlim(0, 100)
+    # plt.xlabel('Review Count')
+    # plt.ylabel('Number of Recipes')
+    # plt.title("Review Count Distribution")
+    # plt.show()
 
     # Next we should do processing on the data
 
@@ -135,7 +149,6 @@ def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_f
      recipes_df[column] = pd.to_timedelta(
      recipes_df[column].str.replace("PT", "").str.replace("H", " hours ").str.replace("M", " minutes").str.replace("S", " seconds")).dt.total_seconds() / 60
 
-    # TODO: Split up data into training/testing sets
 
     # Keywords work like ingredients
     keyword_ings = recipes_df['Keywords'].tolist()
@@ -160,7 +173,6 @@ def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_f
 
     new_keywords = ["None"] * len(keyword_ings)
 
-    # TODO: We probably need a way to choose which cuisine to pick out of keywords list, currently it will simply
     # overwrite the category as it goes through keywords list
     for i in range(0, len(keyword_ings)):
         keywords = keyword_ings[i]
@@ -308,21 +320,28 @@ def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_f
 
     recipes_df['RecipeIngredientParts'] = all_ings #put list back into the main pandas table
 
+    # recipes_df['AggregatedRating'].value_counts().sort_index().plot(kind='bar')
+    # plt.xlabel('Star Rating')
+    # plt.ylabel('Number of Recipes')
+    # plt.title("Recipe Rating Distribution")
+    # plt.show()
 
     X = recipes_df.drop(columns=drop_columns)
 
     # Our labels are 1 - good recipe if rating is above threshold, otherwise 0
     y = (recipes_df['AggregatedRating'].astype(float) >= rating_threshold).astype(int)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=67, stratify=y)
+    X_train_original, X_test_original, y_train_original, y_test_original = X_train, X_test, y_train, y_test
 
-    if balance_training:
+    if balance_training_recipe:
         # Balancing training data only!
-        good_indices_Y = y_train[y_train == 1].index
-        bad_indices_Y = y_train[y_train == 0].index
-        drop_indices_Y = good_indices_Y.to_series().sample(n=max(len(good_indices_Y) - len(bad_indices_Y), 0), random_state=67).index
 
-        X_train = X_train.drop(drop_indices_Y)
-        y_train = y_train.drop(drop_indices_Y)
+        # good_indices_Y = y_train[y_train == 1].index
+        # bad_indices_Y = y_train[y_train == 0].index
+        y_train, X_train = balance_data([
+            y_train[y_train == 1],
+            y_train[y_train == 0],
+        ], X_train)
 
 
     print("Training set label counts:")
@@ -377,10 +396,19 @@ def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_f
     target_cuisine = recipes_df['Keywords']; #keywords column of cuisine types
 
     #split random
-    y_train_cuisine = target_cuisine.loc[y_train.index]; #training data. iloc index position rows. cusine label for every recipe.
+    y_train_cuisine = target_cuisine.loc[y_train_original.index]; #training data. iloc index position rows. cusine label for every recipe.
     #print(y_train_cuisine)
-    y_test_cuisine = target_cuisine.loc[y_test.index]; #testing data [maxican, german, chinese]
+    y_test_cuisine = target_cuisine.loc[y_test_original.index]; #testing data [maxican, german, chinese]
     #print(y_test_cuisine)
+
+    X_train_c = X_train_original.copy()
+    X_test_c = X_test_original.copy()
+
+    if balance_training_cuisine:
+        # Balance cuisine data
+        y_train_cuisine, X_train_c = balance_data([
+            y_categories for _, y_categories in y_train_cuisine.groupby(y_train_cuisine)
+        ], X_train_c)
 
     # Apply fit of data based on the methods we specified to each set of columns, then apply transformations
     #turns the ingredients to binary numbers and takes standardized mean values
@@ -391,8 +419,10 @@ def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_f
         ]
     );
     #create row of all ingredient names every recipe
-    x_train_c = cuisine_prep.fit_transform(X_train);
-    x_test_c = cuisine_prep.transform(X_test);
+    x_train_c_transformed = cuisine_prep.fit_transform(X_train_c);
+    x_test_c_transformed = cuisine_prep.transform(X_test_c);
+
+
 
     print("Training set label counts:")
     print(y_train_cuisine.value_counts())
@@ -400,11 +430,37 @@ def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_f
     print(y_test_cuisine.value_counts())
 
     return (
-            transformed_X_train, transformed_X_test, y_train, y_test, x_train_c, x_test_c,
+            transformed_X_train, transformed_X_test, y_train, y_test, x_train_c_transformed, x_test_c_transformed,
             y_train_cuisine, y_test_cuisine, preprocessor, cuisine_prep,
             ing_counts, prefix_remove, base_ing
             )
 
+def balance_data(data_list_y, data_x):
+    min_length_index = 0
+    # Find the data-set with the smallest length
+    for i in range(0, len(data_list_y)):
+        if len(data_list_y[i]) < len(data_list_y[min_length_index]):
+            min_length_index = i
+    # Remove entries randomly from each data-set except the smallest so that they are balanced
+    min_length = len(data_list_y[min_length_index])
+    for i in range(0, len(data_list_y)):
+        if i != min_length_index:
+            drop_indices = data_list_y[i].sample(n=len(data_list_y[i])-min_length, random_state=67).index
+            data_list_y[i] = data_list_y[i].drop(drop_indices)
+            # Drop the associated rows in the X data as well
+            data_x = data_x.drop(drop_indices)
+
+
+    y_train = pd.concat(data_list_y, ignore_index=False)
+    X_train = data_x.loc[y_train.index]
+
+    # Shuffle data
+    shuffled_indices = y_train.sample(frac=1, random_state=67).index
+
+    y_train = y_train.loc[shuffled_indices]
+    X_train = X_train.loc[shuffled_indices]
+
+    return y_train, X_train
 
 # Call the test functions to sweep for the best parameter depending on the chosen model
 def train_models(transformed_X_train, transformed_X_test, y_train, y_test, x_train_c, x_test_c, y_train_cuisine, y_test_cuisine,
@@ -415,20 +471,28 @@ def train_models(transformed_X_train, transformed_X_test, y_train, y_test, x_tra
     max_k = hyperparameters["max_k"]
     max_depth = hyperparameters["max_depth"]
     cv_count = hyperparameters["cv_count"]
+    balance_training_recipe = hyperparameters["balance_training_recipe"]
+    balance_training_cuisine = hyperparameters["balance_training_cuisine"]
+    param1 = hyperparameters["param1"]
+    param2 = hyperparameters["param2"]
     # Classifier Model Choice
     if USER_MODEL == Models.KNN:
         recipe_results = test_knn_accuracy(
-             transformed_X_train, transformed_X_test, y_train, y_test, max_k=max_k, cv=cv_count,
+             transformed_X_train, transformed_X_test, y_train, y_test,
+            max_k=max_k, cv=cv_count, data_balanced=balance_training_recipe, k=param1
         )
         cuisine_results = test_knn_accuracy(
-             x_train_c, x_test_c, y_train_cuisine, y_test_cuisine, max_k=max_k, cv=cv_count, model_name="cuisine",
+             x_train_c, x_test_c, y_train_cuisine, y_test_cuisine,
+            max_k=max_k, cv=cv_count, model_name="cuisine", data_balanced=balance_training_cuisine, k=param2
         )
     elif USER_MODEL == Models.DTREE:
         recipe_results = test_tree_accuracy(
-             transformed_X_train, transformed_X_test, y_train, y_test, max_depth_test=max_depth, cv=cv_count,
+             transformed_X_train, transformed_X_test, y_train, y_test,
+            max_depth_test=max_depth, cv=cv_count, data_balanced=balance_training_recipe, depth=param1
         )
         cuisine_results = test_tree_accuracy(
-             x_train_c, x_test_c, y_train_cuisine, y_test_cuisine, max_depth_test=max_depth, cv=cv_count, model_name="cuisine",
+             x_train_c, x_test_c, y_train_cuisine, y_test_cuisine,
+            max_depth_test=max_depth, cv=cv_count, model_name="cuisine", data_balanced=balance_training_cuisine, depth=param2
         )
 
     return recipe_results, cuisine_results
@@ -555,22 +619,45 @@ def predict_new_recipe(recipe_model, cuisine_model, preprocessor, cuisine_prep,
             print(f"  {cuisine}: {prob*100:.1f}%")
     print("-"*40 + "\n")
 
+def change_param(param1, param2):
+    if USER_MODEL == Models.KNN:
+        hyperparams[0]["param1"] = param1
+        hyperparams[0]["param2"] = param2
+    if USER_MODEL == Models.DTREE:
+        hyperparams[1]["param1"] = param1
+        hyperparams[1]["param2"] = param2
 
 def choose_model():
-    choice = input(f"Choose a model (1 - KNN | 2 - DTREE): ")
-    choice_clean = "".join([char for char in choice if char.isdigit()])
+    param1, param2 = None, None
+    choice = input(f"Choose a model (1 - KNN | 2 - DTREE)\n"
+                   f"(Optionally, manually enter model parameters seperated by comma)\n"
+                   f"(e.g. '1, 4, 5' results in KNN with K=4 for recipe, K=5 for cuisine): ").strip()
+    input_list = choice.split(",")
+    for i in range(0, len(input_list)):
+        item = input_list[i].strip()
+        item_clean = "".join([char for char in item if char.isdigit()])
+        input_list[i] = item_clean
+    choice_clean = input_list[0]
     try:
         model_chosen = Models(int(choice_clean))
+        if len(input_list) >= 3:
+            param1 = int(input_list[1])
+            param2 = int(input_list[2])
     except ValueError:
         model_chosen = None
-    return model_chosen
+    return model_chosen, param1, param2
 
 if __name__ == "__main__":
     # Take user choice of which model to use
-    #USER_MODEL = Models.DTREE
+    param1, param2 = None, None
     while USER_MODEL is None:
-        USER_MODEL = choose_model()
+        USER_MODEL, param1, param2 = choose_model()
     print(f"{USER_MODEL.name} chosen")
+
+    if param1 and param2:
+        print(f"{param1} and {param2} parameters entered")
+        change_param(param1, param2)
+
     hyperparam_index = USER_MODEL.value - 1
     # Perform data preprocessing depending on model chosen
     (

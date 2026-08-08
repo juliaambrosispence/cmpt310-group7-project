@@ -35,13 +35,17 @@ def safe_cv(y_train, requested_cv=10):
     return safe
 
 
-def find_k(X_train, y_train, k_range=range(1, 101), cv=10):
+def find_k(X_train, y_train, k_range=range(1, 101), cv=10, data_balanced=False):
+    if data_balanced:
+        acc_measure = "accuracy"
+    else:
+        acc_measure = "balanced_accuracy"
     # Return whichever k had the best average accuracy.
     cv = safe_cv(y_train, cv)
     mean_scores = []
     for k in k_range:
         knn = KNeighborsClassifier(n_neighbors=k, weights='distance')
-        scores = cross_val_score(knn, X_train, y_train, cv=cv, scoring="accuracy")
+        scores = cross_val_score(knn, X_train, y_train, cv=cv, scoring=acc_measure)
         mean_scores.append(scores.mean())
 
     k_list = list(k_range)
@@ -96,6 +100,7 @@ def test_knn_accuracy(
     cv=10,
     make_plots=True,
     model_name="recipe",
+    data_balanced=False,
 ):
     """
     Runs a full accuracy check for KNN on data that's preprocessed 
@@ -119,7 +124,7 @@ def test_knn_accuracy(
         print(f"Using user-specified k = {best_k}\n")
     else:
         best_k, k_values, mean_scores = find_k(
-            X_train, y_train, k_range=range(1, max_k + 1), cv=cv
+            X_train, y_train, k_range=range(1, max_k + 1), cv=cv, data_balanced=data_balanced
         )
         print(f"Best k found via cross-validation on TRAINING data: k = {best_k}")
         print(f"(Best mean CV accuracy: {max(mean_scores):.4f})\n")

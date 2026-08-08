@@ -35,14 +35,18 @@ def safe_cv(y_train, requested_cv=5):
     return safe
 
 
-def find_depth(X_train, y_train, depth_range=range(1, 31), cv=5):
+def find_depth(X_train, y_train, depth_range=range(1, 31), cv=5, data_balanced=False):
+    if data_balanced:
+        acc_measure = "accuracy"
+    else:
+        acc_measure = "balanced_accuracy"
     # return whichever max_depth had the best average accuracy.
     cv = safe_cv(y_train, cv)
     mean_scores = []
     for depth in depth_range:
         # class_weight='balanced' for the good recipe bias
         dt = DecisionTreeClassifier(max_depth=depth, class_weight='balanced', random_state=67)
-        scores = cross_val_score(dt, X_train, y_train, cv=cv, scoring="balanced_accuracy")
+        scores = cross_val_score(dt, X_train, y_train, cv=cv, scoring=acc_measure)
         mean_scores.append(scores.mean())
 
     depth_list = list(depth_range)
@@ -96,6 +100,7 @@ def test_tree_accuracy(
     cv=5,
     make_plots=True,
     model_name="recipe",
+    data_balanced=False,
 ):
     """
     Runs a full accuracy check for Decision Tree on data that's preprocessed 
@@ -119,7 +124,7 @@ def test_tree_accuracy(
         print(f"Using user-specified depth = {best_depth}\n")
     else:
         best_depth, depth_values, mean_scores = find_depth(
-            X_train, y_train, depth_range=range(1, max_depth_test + 1), cv=cv
+            X_train, y_train, depth_range=range(1, max_depth_test + 1), cv=cv, data_balanced=data_balanced
         )
         print(f"Best depth found via cross-validation on TRAINING data: depth = {best_depth}")
         print(f"(Best mean CV accuracy: {max(mean_scores):.4f})\n")
