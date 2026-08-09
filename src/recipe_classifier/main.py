@@ -19,7 +19,6 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 from pathlib import Path
 import matplotlib.pyplot as plt
 
-from src.recipe_classifier.webscraper import keep_keywords
 from webscraper import parse_url
 from utils import *
 from enum import Enum
