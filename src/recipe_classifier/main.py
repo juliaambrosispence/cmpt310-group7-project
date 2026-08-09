@@ -19,6 +19,7 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 from pathlib import Path
 import matplotlib.pyplot as plt
 
+from src.recipe_classifier.webscraper import keep_keywords
 from webscraper import parse_url
 from utils import *
 from enum import Enum
@@ -163,15 +164,7 @@ def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_f
 
     # Only keep keywords that are relevant to cuisine type
     keep_keywords = [
-        'Asian',
-        'Mexican',  'Canadian',
-        'Southwestern U.S.',
-        'Australian', 'Indian', 'African', 'Chinese', 'Southwest Asia (middle East)',
-        'Greek', 'Caribbean', 'South American', 'Cajun', 'German',
-        'Scandinavian', 'Creole', 'Spanish', 'Thai', 'Moroccan', 'Japanese', 'Scottish', 'Portuguese', 'New Zealand', 'Hawaiian',  'Swiss', 'Korean', 'Lebanese', 'South African', 'Hungarian', 'Russian', 'Vietnamese', 'Welsh', 'Swedish', 'Brazilian', 'Austrian',
-       'Turkish', 'Indonesian', 'Norwegian', 'Peruvian', 'Native American', 'Polynesian', 'Dutch', 'Polish', 'Danish', 'Belgian', 'Szechuan', 'Pennsylvania Dutch', 'Czech', 'Egyptian', 'Cuban', 'Finnish', 'Filipino', 'Malaysian', 'Venezuelan',
-        'Guatemalan', 'Nigerian','Colombian', 'Palestinian', 'Puerto Rican', 'Ethiopian', 'Iraqi', 'Cantonese', 'Cambodian', 'Hunan', 'Chilean', 'Pakistani', 'Icelandic', 'Costa Rican', 'Nepalese', 'Sudanese', 'Honduran', 'Ecuadorean'
-
+        'Asian', 'Canadian', 'European', 'Mexican', 'African',
     ]
 
     new_keywords = ["None"] * len(keyword_ings)
@@ -328,6 +321,15 @@ def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_f
     # plt.ylabel('Number of Recipes')
     # plt.title("Recipe Rating Distribution")
     # plt.show()
+    #
+    # recipes_df['Keywords'].value_counts().sort_index().plot(kind='bar', figsize=(12, 10));
+    # plt.xticks(rotation=45, ha="right", fontsize=8)
+    # plt.xlabel('Cuisine Type')
+    # plt.ylabel('Number of Recipes')
+    # plt.title("Cuisine Type Distribution")
+    # plt.tight_layout()
+    # plt.show()
+
 
     X = recipes_df.drop(columns=drop_columns)
 
@@ -365,7 +367,6 @@ def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_f
       ("numerical", Pipeline([("imputer",SimpleImputer(strategy="mean")),("scaler",StandardScaler())]), standard_columns),
       ("categorical", OneHotEncoder(handle_unknown="ignore"), categorical_columns),
       ("ingredients", ModifiedMultiLabelBinarizer(), ["RecipeIngredientParts"]),
-      #("keywords", ModifiedMultiLabelBinarizer(), ["Keywords"]),
      ]
     )
 
@@ -422,7 +423,7 @@ def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_f
             ("numerical", Pipeline([("imputer", SimpleImputer(strategy="mean")), ("scaler", StandardScaler())]), standard_columns),
             ("ingredients", ModifiedMultiLabelBinarizer(), ["RecipeIngredientParts"]),
         ]
-    );
+    )
     #create row of all ingredient names every recipe
     x_train_c_transformed = cuisine_prep.fit_transform(X_train_c);
     x_test_c_transformed = cuisine_prep.transform(X_test_c);
@@ -541,8 +542,8 @@ def clean_new_ingredients(raw_ingredients, ing_counts, min_ingredient_freq, pref
     #filter again so only ingredients the model is aware of from ing_counts
     known = [ing for ing in cleaned if ing_counts.get(ing, 0) >= min_ingredient_freq]
     dropped = [ing for ing in cleaned if ing not in known]
-
-    return known
+    # One last duplicate clear
+    return list(dict.fromkeys(known))
 
 #pack the individual raw values into single Dataframe
 def build_recipe_row(cook_time, prep_time, keyword, ingredients, calories, fat, sat_fat, cholesterol, sodium, carbs, fiber, sugar, protein, servings):

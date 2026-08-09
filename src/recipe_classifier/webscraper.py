@@ -8,21 +8,7 @@ from playwright.sync_api import sync_playwright
 import re
 
 keep_keywords = [
-    'Asian',
-    'Mexican', 'Canadian',
-    'Southwestern U.S.',
-    'Australian', 'Indian', 'African', 'Chinese', 'Southwest Asia (middle East)',
-    'Greek', 'Caribbean', 'South American', 'Cajun', 'German',
-    'Scandinavian', 'Creole', 'Spanish', 'Thai', 'Moroccan', 'Japanese', 'Scottish', 'Portuguese', 'New Zealand',
-    'Hawaiian', 'Swiss', 'Korean', 'Lebanese', 'South African', 'Hungarian', 'Russian', 'Vietnamese', 'Welsh',
-    'Swedish', 'Brazilian', 'Austrian',
-    'Turkish', 'Indonesian', 'Norwegian', 'Peruvian', 'Native American', 'Polynesian', 'Dutch', 'Polish', 'Danish',
-    'Belgian', 'Szechuan', 'Pennsylvania Dutch', 'Czech', 'Egyptian', 'Cuban', 'Finnish', 'Filipino', 'Malaysian',
-    'Venezuelan',
-    'Guatemalan', 'Nigerian', 'Colombian', 'Palestinian', 'Puerto Rican', 'Ethiopian', 'Iraqi', 'Cantonese',
-    'Cambodian', 'Hunan', 'Chilean', 'Pakistani', 'Icelandic', 'Costa Rican', 'Nepalese', 'Sudanese', 'Honduran',
-    'Ecuadorean'
-
+    'Asian', 'Canadian', 'European', 'Mexican', 'African',
 ]
 
 def parse_url(url):

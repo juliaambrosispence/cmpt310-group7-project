@@ -49,7 +49,8 @@ def find_params(X_train, y_train, cv=5, data_balanced=False, max_iter=100):
     # These values are simply a combination of the previously-found bests
     params = {
         "hidden_layer_sizes": [
-            (70,),
+            (64, 32),
+            (128, 64),
             (128, 64, 32)
         ],
         "early_stopping": [True],
@@ -57,7 +58,7 @@ def find_params(X_train, y_train, cv=5, data_balanced=False, max_iter=100):
         "solver": ["lbfgs", "adam"],
         "alpha": [0.0001, np.float64(7.658041870432551e-05)],
         "learning_rate_init": [0.0001, np.float64(0.008353089881517721)],
-        "batch_size": [32, 64],
+        "batch_size": [64],
         "learning_rate": ["invscaling"],
     }
 
@@ -128,7 +129,7 @@ def test_mlp_accuracy(
     print("=" * 60)
     if params is not None:
         print(f"Instead of searching, using user-specified parameters:")
-        print_dict(params)
+        print(params)
         best_model = MLPClassifier(max_iter=max_iter, random_state=67, **params)
     else:
         search_result, mean_scores = find_params(
@@ -137,7 +138,7 @@ def test_mlp_accuracy(
         best_model = search_result.best_estimator_
         params = search_result.best_params_
         print(f"Best params found on TRAINING data:")
-        print_dict(params)
+        print(params)
         print(f"(Best mean CV accuracy: {max(mean_scores):.4f})\n")
 
     print("=" * 60)
@@ -145,7 +146,7 @@ def test_mlp_accuracy(
     print("=" * 60)
     best_model.fit(X_train, y_train)
     print(f"MLP Model trained with parameters:")
-    print_dict(params)
+    print(params)
     print("=" * 60)
     print("STEP 3: Predicting on TEST features, scoring against the real answer key")
     print("=" * 60)

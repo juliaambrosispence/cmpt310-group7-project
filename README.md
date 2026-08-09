@@ -23,3 +23,7 @@ Finally run the installation command in the now activated virtual environment us
 
 Now all you need to ensure is whatever IDE you're using has the .venv directory installation set as the Python interpreter.
 Using the virtual environment keeps all the dependencies independent of the state of whatever Python installation a user may already have.
+
+Finally, with the virtual environment active, run
+`python src/recipe_classifier/main.py`
+to run the project.

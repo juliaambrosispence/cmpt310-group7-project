@@ -6,7 +6,7 @@ hyperparams = [
     # KNN Hyperparameters
     # Balance the training dataset to discourage simply guessing 1 every time
     {
-        "n_rows" : 25000,
+        "n_rows" : 18000,
         "rating_threshold" : 5,
         "min_ingredient_freq" : 50,
         "min_keyword_freq" : 60,
@@ -19,7 +19,7 @@ hyperparams = [
     },
     # Decision Tree Hyperparameters
     {
-        "n_rows": 25000,
+        "n_rows": 18000,
         "rating_threshold": 5,
         "min_ingredient_freq": 50,
         "min_keyword_freq": 60,
@@ -32,7 +32,7 @@ hyperparams = [
     },
     # Random Forest Hyperparameters
     {
-        "n_rows": 25000,
+        "n_rows": 18000,
         "rating_threshold": 5,
         "min_ingredient_freq": 20,
         "min_keyword_freq": 60,
@@ -45,7 +45,7 @@ hyperparams = [
     },
     # MLP Hyperparameters
     {
-        "n_rows": 25000,
+        "n_rows": 18000,
         "rating_threshold": 5,
         "min_ingredient_freq": 20,
         "min_keyword_freq": 60,
@@ -54,7 +54,26 @@ hyperparams = [
         "balance_training_recipe": False,
         "balance_training_cuisine": False,
         # Previously found using RandomizedSearchCV
-        "param1": {'solver': 'lbfgs', 'learning_rate_init': 0.0001, 'learning_rate': 'invscaling', 'hidden_layer_sizes': (70,), 'early_stopping': True, 'batch_size': 32, 'alpha': 0.0001, 'activation': 'tanh'},
-        "param2": {'activation': 'tanh', 'alpha': np.float64(7.658041870432551e-05), 'batch_size': 64, 'early_stopping': True, 'hidden_layer_sizes': (128, 64, 32), 'learning_rate': 'invscaling', 'learning_rate_init': np.float64(0.008353089881517721), 'solver': 'adam'}
+        "param1": {
+                        "solver": "lbfgs",
+                        "learning_rate_init": np.float64(0.008353089881517721),
+                        "learning_rate": "invscaling",
+                        "hidden_layer_sizes": (128, 64),
+                        "early_stopping": True,
+                        "batch_size": 64,
+                        "alpha": 7.658041870432551e-05,
+                        "activation": "tanh"
+        },
+        "param2": {
+                    'solver': 'adam',
+                   'learning_rate_init': np.float64(0.008353089881517721),
+                   'learning_rate': 'invscaling',
+                   'hidden_layer_sizes': (128, 64),
+                   'early_stopping': True,
+                   'batch_size': 64,
+                   'alpha': 0.0001,
+                   'activation': 'tanh'
+                   }
+
     }
 ]
