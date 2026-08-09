@@ -1,5 +1,6 @@
 # hyperparams.py
 # Contains global variables for tweaking
+import numpy as np
 
 hyperparams = [
     # KNN Hyperparameters
@@ -41,5 +42,19 @@ hyperparams = [
         "balance_training_cuisine": False,
         "param1": None,
         "param2": None
+    },
+    # MLP Hyperparameters
+    {
+        "n_rows": 25000,
+        "rating_threshold": 5,
+        "min_ingredient_freq": 20,
+        "min_keyword_freq": 60,
+        "cv_count": 5,
+        "max_sweep": 12000,
+        "balance_training_recipe": False,
+        "balance_training_cuisine": False,
+        # Previously found using RandomizedSearchCV
+        "param1": {'solver': 'lbfgs', 'learning_rate_init': 0.0001, 'learning_rate': 'invscaling', 'hidden_layer_sizes': (70,), 'early_stopping': True, 'batch_size': 32, 'alpha': 0.0001, 'activation': 'tanh'},
+        "param2": {'activation': 'tanh', 'alpha': np.float64(7.658041870432551e-05), 'batch_size': 64, 'early_stopping': True, 'hidden_layer_sizes': (128, 64, 32), 'learning_rate': 'invscaling', 'learning_rate_init': np.float64(0.008353089881517721), 'solver': 'adam'}
     }
 ]

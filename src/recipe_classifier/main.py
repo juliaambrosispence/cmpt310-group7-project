@@ -25,6 +25,7 @@ from enum import Enum
 from knn_test import test_knn_accuracy
 from tree_test import test_tree_accuracy
 from rforest_test import test_rforest_accuracy
+from mlp_test import test_mlp_accuracy
 from hyperparams import *
 
 USER_MODEL = None
@@ -72,6 +73,7 @@ class Models(Enum):
     KNN = 1
     DTREE = 2
     RFOREST = 3
+    MLP = 4
 
 
 # Define a modified MultiLabelBinarizer for use in ColumnTransformer
@@ -225,7 +227,7 @@ def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_f
     base_ing = {
         "tortilla" : ["flour tortilla", "corn tortilla", "tortilla"],
         "peanut butter"  : ["peanut butter"],
-        "soy sauce"      : ["soy sauce"],
+        "soy sauce"      : ["soy sauce", "soya sauce"],
         "olive oil"      : ["olive oil"],
         "vegetable oil"  : ["vegetable oil", "canola oil"],
         "chicken broth"  : ["chicken broth", "chicken stock"],
@@ -367,6 +369,8 @@ def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_f
      ]
     )
 
+
+
     # Apply fit of data based on the methods we specified to each set of columns, then apply transformations
     transformed_X_train = preprocessor.fit_transform(X_train)
     transformed_X_test = preprocessor.transform(X_test)
@@ -422,8 +426,6 @@ def data_preprocess(n_rows, rating_threshold, min_ingredient_freq, min_keyword_f
     #create row of all ingredient names every recipe
     x_train_c_transformed = cuisine_prep.fit_transform(X_train_c);
     x_test_c_transformed = cuisine_prep.transform(X_test_c);
-
-
 
     print("Training set label counts:")
     print(y_train_cuisine.value_counts())
@@ -503,6 +505,18 @@ def train_models(transformed_X_train, transformed_X_test, y_train, y_test, x_tra
             max_estimator_test=hyperparameters["max_sweep"], cv=cv_count, model_name="cuisine", data_balanced=balance_training_cuisine,
             estimator=param2
         )
+    elif USER_MODEL == Models.MLP:
+        recipe_results = test_mlp_accuracy(
+            transformed_X_train, transformed_X_test, y_train, y_test,
+            max_iter=hyperparameters["max_sweep"], cv=cv_count, data_balanced=balance_training_recipe,
+            params=param1
+        )
+        cuisine_results = test_mlp_accuracy(
+            x_train_c, x_test_c, y_train_cuisine, y_test_cuisine,
+            max_iter=hyperparameters["max_sweep"], cv=cv_count, model_name="cuisine", data_balanced=balance_training_cuisine,
+            params=param2
+        )
+
 
     return recipe_results, cuisine_results
 
@@ -632,17 +646,20 @@ def change_param(param1, param2):
     if USER_MODEL == Models.KNN:
         hyperparams[0]["param1"] = param1
         hyperparams[0]["param2"] = param2
-    if USER_MODEL == Models.DTREE:
+    elif USER_MODEL == Models.DTREE:
         hyperparams[1]["param1"] = param1
         hyperparams[1]["param2"] = param2
-    if USER_MODEL == Models.RFOREST:
+    elif USER_MODEL == Models.RFOREST:
         hyperparams[2]["param1"] = param1
         hyperparams[2]["param2"] = param2
+    elif USER_MODEL == Models.MLP:
+        hyperparams[3]["param1"] = param1
+        hyperparams[3]["param2"] = param2
 
 def choose_model():
     param1, param2 = None, None
-    choice = input(f"Choose a model (1 - KNN | 2 - DTREE | 3 - RFOREST)\n"
-                   f"(Optionally, manually enter model parameters seperated by comma)\n"
+    choice = input(f"Choose a model (1 - KNN | 2 - DTREE | 3 - RFOREST | 4 - MLP)\n"
+                   f"(For models [1, 2, 3] only, optionally enter model parameters seperated by comma)\n"
                    f"(e.g. '1, 4, 5' results in KNN with K=4 for recipe, K=5 for cuisine): ").strip()
     input_list = choice.split(",")
     for i in range(0, len(input_list)):
@@ -652,7 +669,7 @@ def choose_model():
     choice_clean = input_list[0]
     try:
         model_chosen = Models(int(choice_clean))
-        if len(input_list) >= 3:
+        if len(input_list) >= 3 and model_chosen != Models.MLP:
             param1 = int(input_list[1])
             param2 = int(input_list[2])
     except ValueError:
@@ -686,6 +703,11 @@ if __name__ == "__main__":
                                                    hyperparams[hyperparam_index])
     recipe_model = recipe_results["model"]
     cuisine_model = cuisine_results["model"]
+
+    print()
+    print("=" * 60)
+    print("Custom Recipe Evaluation")
+    print("=" * 60)
 
     while True:
         # Parse URL from user
